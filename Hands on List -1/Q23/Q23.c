@@ -1,3 +1,13 @@
+/*
+============================================================================
+Name : Q23.c
+Author : Sonu Kumar Mahto
+
+Description--------------------------
+23. Write a program to create a Zombie state of the running program.
+
+Date: 30th Aug, 2024.
+============================================================================*/
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>

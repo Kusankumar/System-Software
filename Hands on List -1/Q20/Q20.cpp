@@ -1,9 +1,13 @@
-/*=====================================================================
-Name: Sonu Kumar Mahto
-Roll: MT2024152
+/*
+============================================================================
+Name : Q20.c
+Author : Sonu Kumar Mahto
 
+Description--------------------------
+20. Find out the priority of your running program. Modify the priority with nice command
 
-*/
+Date: 30th Aug, 2024.
+============================================================================*/
 
 #include<iostream>
 #include <unistd.h>

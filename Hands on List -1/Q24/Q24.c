@@ -1,3 +1,13 @@
+/*
+============================================================================
+Name : Q24.c
+Author : Sonu Kumar Mahto
+
+Description--------------------------
+24. Write a program to create an orphan process.
+
+Date: 30th Aug, 2024.
+============================================================================*/
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
