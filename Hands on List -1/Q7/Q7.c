@@ -32,7 +32,7 @@ int main(void){
     return 1;
   }
   
-  int dfd = open(dest,O_WRONLY | O_CREAT | O_TRUNC,0666 );
+  int dfd = open(dest,O_WRONLY | O_CREAT |O_APPEND,0666 );
   if(!isfdvalid(dfd)){
     close(dfd);
     return 1;

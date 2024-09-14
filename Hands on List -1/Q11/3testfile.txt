@@ -1,2 +1,0 @@
-Hi there I'm Sonu Kumar Mahto studying at IIITB
-I'm writing some content to file after duplicating fd using fcnt
