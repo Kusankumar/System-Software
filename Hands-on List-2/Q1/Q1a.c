@@ -29,6 +29,7 @@ void handler(int signal) {
     else if(signal == SIGPROF)
         printf("SIGPROF Received\n");
 }
+
 int main(){
     signal(SIGALRM, handler);
 
