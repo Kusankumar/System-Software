@@ -59,6 +59,7 @@ int main(){
 }
 /*
 Output======================================================================
+$ ipcs -q
 ------ Message Queues --------
 key        msqid      owner      perms      used-bytes   messages    
 0x53051de0 5          sonu2030   666        40           5           

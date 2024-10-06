@@ -41,6 +41,7 @@ int main(){
 /*
 Output======================================================================
 $ ./Q29
+$ ipcs -q
 ----- Message Queues --------
 key        msqid      owner      perms      used-bytes   messages    
 0x6f051d8b 0          sonu2030   666        0            0           
