@@ -1,0 +1,193 @@
+//Client side
+while (1){
+        bzero(buff,BUFF_SIZE);
+        char greetMsg[]="\n-----------------------Welcome-----------------------\n1. Login\n2. Exit\nEnter Chioce: ";
+        printf("%s",greetMsg);
+        scanf("%d",&loginAct);
+
+        //Login Action
+        write(sockfd,&loginAct,sizeof(int));
+        
+
+        //Login User
+        if(loginAct==1){
+            char username[UCSIZE],passwd[UCSIZE];
+            int auth;
+            bzero(buff,BUFF_SIZE);
+
+            //Enter Username
+            bytes = read(sockfd,buff,sizeof(buff)-1);
+            buff[bytes]='\0';
+            printf("%s",buff);
+            scanf("%s",username);
+            write(sockfd,username,strlen(username));
+
+            //Enter Password
+            bzero(buff,BUFF_SIZE);
+            bytes = read(sockfd,buff,sizeof(buff)-1);
+            buff[bytes]='\0';
+            printf("%s",buff);
+            scanf("%s",passwd);
+            write(sockfd,passwd,strlen(passwd));
+
+            //Authenticating
+            bzero(buff,BUFF_SIZE);
+            bytes = read(sockfd,&auth,sizeof(int));
+
+            //Sync write
+            write(sockfd,"Sync",strlen("Sync"));
+            if(auth<=0){
+                printf("Error at auth");
+                break;
+            }
+            printf("UserID: %d\n",auth);
+            
+            if(auth>1000){
+                //Welcome customer
+                int choice,currUserID;
+                currUserID = auth;
+                while(1){
+                    bzero(buff,BUFF_SIZE);
+                    bytes = read(sockfd,buff,BUFF_SIZE-1);
+                    buff[bytes]='\0';
+
+                    printf("%s",buff);
+                    scanf("%d",&choice);
+                    write(sockfd,&choice,sizeof(int));
+                    
+                    if(choice==1){
+                        long int userBal;
+                        read(sockfd,&userBal,sizeof(long int));
+                        write(sockfd,"Sync",strlen("Sync"));
+
+                    }else if(choice==2){
+                        long int amount;
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes] = '\0';
+                        printf("%s",buff);
+                        scanf("%ld",&amount);
+
+                        write(sockfd,&amount,sizeof(long int));
+
+                    }else if(choice==3){
+
+                    }else if(choice==4){
+
+                    }
+                    else if(choice==5){
+
+                    }else if(choice==6){
+
+                    }
+                    else if(choice==7){
+
+                    }else if(choice==8){
+                        
+                    }
+                    else if(choice==9){
+                        break;
+                    }else{
+                        
+                    }
+                }
+            }
+
+        }
+        else if(loginAct==2){
+            break;
+        }
+    }
+    close(sockfd);
+    return 0;
+}
+
+//server side
+int customerZone(int sockfd,int currUserID){
+
+    printf("\n-------------------Welcome-------------------\n");
+    char customerMenu[]="1. View Account Balance\n2. Deposit Money\n3. Withdraw Money\n4. Send Money\n5. Apply for Loan\n6. View History\n7. Add Feedback\n8. Change Password\n9. Logout";
+    char username[32],userpwd[32],usermail[32];
+    ssize_t bytes;
+    int mychoice;
+
+    while(1){
+        bytes = write(sockfd,customerMenu,strlen(customerMenu));
+        if(bytes<0) perror("Error sending to client");
+
+        read(sockfd,&mychoice,sizeof(int));
+
+        if(mychoice==1){
+            long int userBal = checkUserBalance(currUserID);
+            write(sockfd,&userBal,sizeof(long int));
+            read(sockfd,"Sync",strlen("Sync"));
+        }
+        else if(mychoice==2){
+            long int amount;
+            write(sockfd,"Enter deposit amount: ",strlen("Enter deposit amount: "));
+            read(sockfd,&amount,sizeof(long int));
+            if(depositFund(currUserID,amount)!=1){
+                fprintf(stderr,"Couldn't deposit money\n");
+            }
+        }
+        
+        else if(mychoice==9){
+            break;
+        }
+        else{
+
+        }
+    }
+    return 1;
+}
+
+while (1){
+        char greetMsg[]="\n-----------------------Welcome-----------------------\n1. Login\n2. Exit\nEnter Chioce: ";
+        write(sockfd,greetMsg,strlen(greetMsg));
+
+        //receive loginAct from client
+        read(sockfd,&loginAct,sizeof(int));
+
+        
+        //Login User
+        if(loginAct==1){
+            char username[UCSIZE],passwd[UCSIZE];
+            bzero(buff,BUFF_SIZE);
+            bzero(username,UCSIZE);
+            bzero(passwd,UCSIZE);
+
+            //Getting Username
+            write(sockfd,"Enter Username: ",strlen("Enter Username: "));
+            bytes = read(sockfd,username,sizeof(username)-1);
+            username[bytes] = '\0';
+
+            //Getting Password
+            write(sockfd,"Enter Password: ",strlen("Enter Password: "));
+            bytes = read(sockfd,passwd,sizeof(passwd)-1);
+            passwd[bytes] = '\0';
+
+            //Authemticating
+            int auth = login(username,passwd);
+            write(sockfd,&auth,sizeof(int));
+
+            //Sync wait
+            read(sockfd,"Sync",strlen("Sync"));
+            if(auth<=0){
+                printf("Error auth");
+                break;
+            } break;
+            printf("UserID: %d\n",auth);
+            
+            if(auth>1000){
+                //customer Zone
+                int cutomerExitStatus = customerZone(sockfd,auth);
+            }            
+
+        }
+        else if(loginAct==2){
+            break;
+        }        
+    }
+    return 0;
+}
