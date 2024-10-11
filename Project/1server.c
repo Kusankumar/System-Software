@@ -51,7 +51,7 @@ int clientHandler(int sockfd){
             write(sockfd,&auth,sizeof(int));
 
             //Sync wait
-            read(sockfd,"Sync",strlen("Sync"));
+            read(sockfd,buff,BUFF_SIZE-1);
             if(auth<=0){
                 printf("Error auth");
                 break;
@@ -109,7 +109,7 @@ int main(){
 
     listen(sockfd,BACKLOG);
     clilen = sizeof(cliaddr);
-
+    printf("Listening...\n");
 
     while(1){
         newsockfd = accept(sockfd,(struct sockaddr*)&cliaddr,&clilen);

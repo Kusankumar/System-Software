@@ -48,19 +48,25 @@ struct loan
     int pending;
 };
 
-void transactionEntry(char path[PATH_LEN],int userID,int toUserID,char type[MAX_LEN],long int bal){
+
+void transactionEntry(int userID,int toUserID,char *type,long int bal){
     struct transHistory tranHist;
+    char path[PATH_LEN];
 
     tranHist.fromID = userID;
     tranHist.toID = toUserID;
     snprintf(tranHist.type,MAX_LEN,"%s",type);
     tranHist.balance = bal;
 
+    snprintf(path,PATH_LEN,"%d/transactionHist.dat",userID);
     int fd = open(path,O_WRONLY|O_CREAT|O_APPEND,0766);
     if(fd<0) perror("Error opening transaction History file");
     
-    write(fd,&tranHist,sizeof(struct transHistory));
-
+    if(write(fd,&tranHist,sizeof(struct transHistory))<0){
+        perror("Error writing transaction history\n");
+        return;
+    }
+    close(fd);
 }
 
 long int checkUserBalance(int userID){
@@ -77,7 +83,7 @@ long int checkUserBalance(int userID){
     return bal.balance;
 }
 
-int depositFund(int userID,long int addAmount){
+int depositFund(int userID,int touserID,long int addAmount){
     struct acbalance bal;
     char path[PATH_LEN];
 
@@ -90,12 +96,13 @@ int depositFund(int userID,long int addAmount){
     lseek(fd,0,SEEK_SET);
 
     write(fd,&bal,sizeof(struct acbalance));
-
     close(fd);
+
+    transactionEntry(userID,touserID,"credit",addAmount);
     return 1;
 }
 
-int withdrawFund(int userID,long int debitAmount){
+int withdrawFund(int userID,int touserID,long int debitAmount){
     struct acbalance bal;
     char path[PATH_LEN];
 
@@ -108,24 +115,23 @@ int withdrawFund(int userID,long int debitAmount){
     lseek(fd,0,SEEK_SET);
 
     write(fd,&bal,sizeof(struct acbalance));
-
     close(fd);
+
+    transactionEntry(userID,touserID,"debit",debitAmount);
     return 1;
 }
 //change password
-void change_password() {
+int change_password(char *username,char *currpass,char *newpass) {
     struct credential user, file_user;
     int found = 0;
 
-    printf("Enter your username: ");
-    scanf("%s", user.username);
-    printf("Enter your current password: ");
-    scanf("%s", user.password);
+    snprintf(user.username,MAX_LEN,"%s",username);
+    snprintf(user.password,MAX_LEN,"%s",currpass);
 
     int fd = open("credentials.dat", O_RDWR);
     if (fd < 0) {
         perror("Error opening file");
-        return;
+        return -1;
     }
 
     // Search for the user and get the file offset
@@ -142,24 +148,53 @@ void change_password() {
     if (!found) {
         printf("No User Found\n");
         close(fd);
-        return;
+        return 0;
     }
 
     //Setting new Password
-    printf("Enter new password: ");
-    scanf("%s", user.password);
+    snprintf(user.password,MAX_LEN,"%s",newpass);
+    user.UID=file_user.UID;
 
     lseek(fd, offset, SEEK_SET);
 
     if (write(fd, &user, sizeof(struct credential)) < 0) {
         perror("Error writing to file");
         close(fd);
+        return -1;
+    }
+    close(fd);
+    return user.UID;
+}
+
+void deleterecord(const char* uname, const char* pwd) {
+    struct credential nextRecord;
+    int fd1 = open("credentials.dat", O_RDONLY);
+    if (fd1 < 0) {
+        perror("Error opening credentials.dat");
         return;
     }
 
-    close(fd);
-}
+    int fd2 = open("temp.dat", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd2 < 0) {
+        perror("Error opening temp.dat");
+        close(fd1);
+        return;
+    }
 
+    while (read(fd1, &nextRecord, sizeof(struct credential)) > 0) {
+        if (strcmp(nextRecord.username, uname) == 0 &&
+            strcmp(nextRecord.password, pwd) == 0) {
+            continue;
+        }
+        write(fd2, &nextRecord, sizeof(struct credential));
+    }
+
+    close(fd1);
+    close(fd2);
+
+    remove("credentials.dat");
+    rename("temp.dat", "credentials.dat");
+}
 
 // Function to register a user by saving credentials to a file
 int register_user() {
@@ -293,12 +328,38 @@ int login(char uname[MAX_LEN],char upwd[MAX_LEN]) {
     close(fd);
     return 0;
 }
+
+void printUserdetail(int userID){
+    char path[PATH_LEN];
+    struct userDetails userstat;
+
+    snprintf(path,PATH_LEN,"%d/userdetail.dat",userID);
+    int fd = open(path,O_RDONLY);
+    read(fd,&userstat,sizeof(struct userDetails));
+    close(fd);
+    printf("User Information-----------------------------\n");
+    printf("|Your ID: %d\n|Name: %s\n|Email: %s\n|Phone: %s",userstat.UID,userstat.name,userstat.email,userstat.phone);
+}
+
+void printCredFile(){
+    char path[]="credentials.dat";
+    struct credential user;
+
+    int fd = open(path,O_RDONLY);
+    printf("Fetched Data--------------------------\n");
+    while(read(fd,&user,sizeof(struct credential))>0){
+        printf("%d\t%s\t%s\n",user.UID,user.username,user.password);
+    }
+    close(fd);
+    return;
+}
+
 /*
 int main() {
     int choice, auth;
     
     while (1) {
-        printf("1. Register\n2. Login\n3. change password\n4. Exit\n");
+        printf("1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
@@ -320,11 +381,37 @@ int main() {
                 }
                 break;
             case 3:
-                change_password();
+                char inp1[MAX_LEN],inp2[MAX_LEN],inp3[MAX_LEN];
+                printf("Enter your username: ");
+                scanf("%s", inp1);
+                
+                printf("Enter your current password: ");
+                scanf("%s",inp2);
+                
+                printf("Enter new password: ");
+                scanf("%s",inp3);
+                change_password(inp1,inp2,inp3);
                 break;
             case 4:
                 printf("Exiting...\n");
                 exit(0);
+            case 5:
+                int id;
+                printf("Enter User ID: ");
+                scanf("%d",&id);
+                printUserdetail(id);
+                break;
+            case 6:
+                printCredFile();
+                break;
+            case 7:
+                char u1[MAX_LEN],u2[MAX_LEN];
+                printf("Enter Username: ");
+                scanf("%s",u1);
+                printf("Enter Password: ");
+                scanf("%s",u2);
+                deleterecord(u1,u2);
+                break;                
             default:
                 printf("Invalid choice.\n");
         }

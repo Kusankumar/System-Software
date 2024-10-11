@@ -7,13 +7,60 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <fcntl.h>   
+#include <sys/stat.h>
+
 #define PORT 9898
 #define BUFF_SIZE 1024
+#define PATH_LEN 64
 #define UCSIZE 64
+#define MAX_LEN 64
+
+struct userDetails{
+    int UID;
+    char name[MAX_LEN];
+    char email[MAX_LEN];
+    char phone[MAX_LEN];
+};
+
+struct transHistory{
+    int fromID;
+    int toID;
+    char type[MAX_LEN];
+    long int balance;
+};
 
 void getError(const char *msg){
     perror(msg);
     exit(EXIT_FAILURE);
+}
+
+void printUserdetail(int userID){
+    char path[PATH_LEN];
+    struct userDetails userstat;
+
+    snprintf(path,PATH_LEN,"%d/userdetail.dat",userID);
+    int fd = open(path,O_RDONLY);
+    read(fd,&userstat,sizeof(struct userDetails));
+    close(fd);
+    printf("User Information-----------------------------\n");
+    printf("|Your ID: %d\n|Name: %s\n|Email: %s\n|Phone: %s",userstat.UID,userstat.name,userstat.email,userstat.phone);
+}
+
+void printTransHistory(int userID){
+    char path[PATH_LEN];
+    struct transHistory userTransHist;
+
+    snprintf(path,PATH_LEN,"%d/transactionHist.dat",userID);
+    int fd = open(path,O_RDONLY);
+
+    printf("Transactions---------------------------------\nFrom\t To\tType\t Amount\n");
+    while(read(fd,&userTransHist,sizeof(struct transHistory))>0){
+        printf("%d\t %d \t%s \t%ld\n",userTransHist.fromID,userTransHist.toID,userTransHist.type,userTransHist.balance);
+    }
+    close(fd);
+    return;
+
 }
 
 int main(){
@@ -41,7 +88,7 @@ int main(){
     int act,loginAct;
     while (1){
         bzero(buff,BUFF_SIZE);
-        char greetMsg[]="\n-----------------------Welcome-----------------------\n1. Login\n2. Exit\nEnter Chioce: ";
+        char greetMsg[]="\n-------------------Welcome-------------------\n1. Login\n2. Exit\nEnter Chioce: ";
         printf("%s",greetMsg);
         scanf("%d",&loginAct);
 
@@ -88,6 +135,7 @@ int main(){
 
                 sleep(1);
                 system("clear");
+                printUserdetail(currUserID);
                 while(1){
                     
                     char customerMenu[]="1. View Account Balance\n2. Deposit Money\n3. Withdraw Money\n4. Send Money\n5. Apply for Loan\n6. View History\n7. Add Feedback\n8. Change Password\n9. Logout\nEnter Choice: ";
@@ -102,7 +150,7 @@ int main(){
                         long int userBal;
                         read(sockfd,&userBal,sizeof(long int));
                         write(sockfd,"Sync",strlen("Sync"));
-                        printf("Account Balance: %ld\n",userBal);
+                        printf("Account Balance: \u20B9 %ld\n",userBal);
                     }else if(choice==2){
                         long int amount;
 
@@ -116,26 +164,73 @@ int main(){
 
                     }else if(choice==3){
                         long int amount;
-                        printf("Enter amount: ");
+                        printf("Enter Amount: ");
                         scanf("%ld",&amount);
                         write(sockfd,&amount,sizeof(long int));
                     }else if(choice==4){
+                        //Send money
+                        int towhom;
+                        long int amount;
 
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes] = '\0';
+                        printf("%s",buff);
+                        scanf("%d",&towhom);
+                        write(sockfd,&towhom,sizeof(int));
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes] = '\0';
+                        printf("%s",buff);
+                        scanf("%ld",&amount);
+                        write(sockfd,&amount,sizeof(long int));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE);
                     }
                     else if(choice==5){
 
                     }else if(choice==6){
-
+                        //View history
+                        printTransHistory(currUserID);
                     }
                     else if(choice==7){
 
                     }else if(choice==8){
+                        //Chnage Password
+                        char username[MAX_LEN],currPass[MAX_LEN],newPass[MAX_LEN];
+                        
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",username);
+                        write(sockfd,username,strlen(username));
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",currPass);
+                        write(sockfd,currPass,strlen(currPass));
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",newPass);
+                        write(sockfd,newPass,strlen(newPass));
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
                         
                     }
                     else if(choice==9){
                         break;
                     }else{
-                        
+                        printf("Invalid Choice\n");
                     }
                 }
             }
