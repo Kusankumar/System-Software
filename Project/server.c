@@ -7,8 +7,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "loginUser.c"
-#include "customer.c"
+#include "serverComponent.c"
+#include "serverModules.c"
+
 #define PORT 9898
 #define BUFF_SIZE 1024
 #define BACKLOG 10
@@ -52,14 +53,17 @@ int clientHandler(int sockfd){
 
             //Sync wait
             read(sockfd,buff,BUFF_SIZE-1);
-            if(auth<=0){
-                printf("Error auth");
-                break;
+            if(auth<0){
+                printf("No User in Database\n");
+            }
+            if(auth==0){
+                printf("Deactive account\n");
             }
             
             if(auth>1000){
                 //customer Zone
                 int cutomerExitStatus = customerZone(sockfd,auth);
+                if(cutomerExitStatus!=1) fprintf(stderr,"Client Module Terminated unexpectedly\n");
             }
             /*
             else if(auth>200 && auth<=1000){
@@ -71,15 +75,13 @@ int clientHandler(int sockfd){
                 //Welcome manager
                 char managerMenu[]="1. Activate Customer\n2.Deactivate Customer\n3. ALA to Employee\n4. Review Customer Feedback\n5. Logout\nEnter your choice: ";
 
-            }
+            }*/
+           
             else if(auth>=1 && auth<=50){
                 //welcome admin
-                char adminMenu[]="1. Modify Employee\n2. Modify Customer\n3. Add Employee\n4. Manage Roles5. change password\n6. Logout\nEnter Choice: ";
-                write(sockfd,adminMenu,strlen(adminMenu));
-                
-                read(sockfd,buff,sizeof(buff)-1);
+                int adminExitStatus = administratorZone(sockfd,auth);
+                if(adminExitStatus!=1) fprintf(stderr,"Client Module Terminated unexpectedly\n");
             }
-            */
 
         }
         else if(loginAct==2){

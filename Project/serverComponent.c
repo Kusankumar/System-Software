@@ -8,6 +8,16 @@
 #define MAX_LEN 64
 #define PATH_LEN 64
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>   
+#include <unistd.h>  
+#include <sys/stat.h>
+
+#define MAX_LEN 64
+#define PATH_LEN 64
+
 struct credential {
     int UID;
     _Bool active;
@@ -53,8 +63,7 @@ struct loanApplication{
     long int amount;
     char status[MAX_LEN];
 };
-
-int modifyUserDetail(int userID,int whichEntry){
+int modifyUserDetail(int userID,int whichEntry,char *newEntry){
     struct userDetails udetail,fileUser;
     off_t offset = 0;
     _Bool found = 0;
@@ -87,21 +96,12 @@ int modifyUserDetail(int userID,int whichEntry){
     snprintf(udetail.phone,MAX_LEN,"%s",fileUser.phone);
     snprintf(udetail.designation,MAX_LEN,"%s",fileUser.designation);
 
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);    
-
     if(whichEntry==1){
-        printf("Enter New Name: ");
-        fgets(udetail.name, sizeof(udetail.name), stdin);
-        udetail.name[strcspn(udetail.name, "\n")] = 0;
-    }else if(whichEntry==1){
-        printf("Enter New Email: ");
-        fgets(udetail.email, sizeof(udetail.email), stdin);
-        udetail.email[strcspn(udetail.email, "\n")] = 0;
-    }else if(whichEntry==1){
-        printf("Enter New Phone: ");
-        fgets(udetail.phone, sizeof(udetail.phone), stdin);
-        udetail.phone[strcspn(udetail.phone, "\n")] = 0;
+        snprintf(udetail.name,MAX_LEN,"%s",newEntry);
+    }else if(whichEntry==2){
+        snprintf(udetail.email,MAX_LEN,"%s",newEntry);
+    }else if(whichEntry==3){
+        snprintf(udetail.phone,MAX_LEN,"%s",newEntry);
     }
 
     lseek(fd,offset,SEEK_SET);
@@ -114,40 +114,182 @@ int modifyUserDetail(int userID,int whichEntry){
     return 1;
 }
 
-void active_deactiveUser(int userID){
-    struct credential user;
-    _Bool found = 0;
-    off_t offset=0;
+int login(char uname[MAX_LEN],char upwd[MAX_LEN]) {
+    struct credential file_user;
 
-    int fd = open("credentials.dat",O_RDWR);
-    if(fd<0) perror("Error opening credentials file");
-
-    while (read(fd, &user, sizeof(struct credential)) > 0) {
-        if(user.UID==userID){
-            found =1;
-            break;
-        };
-        offset+=sizeof(struct credential);
+    int fd = open("credentials.dat", O_RDONLY);
+    if (fd < 0) {
+        perror("Error opening file");
+        return -1;
     }
 
-    if(!found){
-        printf("No User Found\n");
-        close(fd);
-        return;
+    while (read(fd, &file_user, sizeof(struct credential)) > 0) {
+        if (strcmp(uname, file_user.username) == 0 &&
+            strcmp(upwd, file_user.password) == 0) {
+            close(fd);
+            if(file_user.active==0) return 0;
+            return file_user.UID;
+        }
     }
 
-    //User Found
-    user.active = !(user.active);
-    lseek(fd,offset,SEEK_SET);
-    if(write(fd,&user,sizeof(struct credential))<0){
-        perror("Couldn't Activate/deactivate");
-        close(fd);
-        return;
-    }
     close(fd);
-    return;
+    return -1;
 }
 
+int register_user(int uid,char *username,char *pwd,char* name,char* uemail,char* phone) {
+    struct credential user;
+    struct userDetails udetail;
+    struct acbalance ubal;
+    struct transHistory utrans;
+    struct feedback ufeed;
+    char path[PATH_LEN];
+
+    //Input credentials
+    user.UID = uid;
+    user.active =1;
+    snprintf(user.username,MAX_LEN,"%s",username);
+    snprintf(user.password,MAX_LEN,"%s",pwd);
+    
+    
+    udetail.UID = user.UID;
+    snprintf(udetail.name,MAX_LEN,"%s",name);
+    snprintf(udetail.email,MAX_LEN,"%s",uemail);
+    snprintf(udetail.phone,MAX_LEN,"%s",phone);
+    
+    if(user.UID>1000){
+        snprintf(udetail.designation,MAX_LEN,"%s","Customer");
+    }
+    else if(user.UID>200 && user.UID<=1000){
+        snprintf(udetail.designation,MAX_LEN,"%s","Employee");
+    }
+    else if(user.UID>50 && user.UID<=200){
+        snprintf(udetail.designation,MAX_LEN,"%s","Manager");
+    }
+    else if(user.UID>=1 && user.UID<=50){
+        snprintf(udetail.designation,MAX_LEN,"%s","Administrator");
+    }
+    //User bank balance Intialize
+    ubal.balance = 0;
+
+    int fd = open("credentials.dat", O_WRONLY | O_APPEND | O_CREAT, 0600);
+    if (fd < 0) {
+        perror("Error opening file");
+        return 0;
+    }
+
+    if (write(fd, &user, sizeof(struct credential)) < 0) {
+        perror("Error writing to file");
+        close(fd);
+        return 0;
+    }
+    close(fd);
+
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d",user.UID);
+    mkdir(path,0766);
+
+
+    //Creating User detail File
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/userdetail.dat",user.UID);
+
+    fd = open(path,O_WRONLY|O_CREAT,0766);
+    if(fd<0) fprintf(stderr,"Error creating <%s> files",path);
+    write(fd,&udetail,sizeof(struct userDetails));
+    close(fd);
+
+    //Creating User File for account balance
+    if(user.UID>1000){
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/balance.dat",user.UID);
+
+    fd = open(path,O_WRONLY|O_CREAT,0766);
+    if(fd<0) fprintf(stderr,"Error creating <%s> files",path);
+    write(fd,&ubal,sizeof(struct acbalance));
+    close(fd);
+
+    //Creating User Transaction History file
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/transactionHist.dat",user.UID);
+
+    fd = open(path,O_WRONLY|O_CREAT,0766);
+    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
+    close(fd);
+
+    //Creating User Feedback File
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/feedback.dat",user.UID);
+
+    fd = open(path,O_WRONLY|O_CREAT,0766);
+    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
+    close(fd);
+
+    //Creating User Loan detail file
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/userloandetail.dat",user.UID);
+
+    fd = open(path,O_WRONLY|O_CREAT,0766);
+    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
+    close(fd);
+    }
+
+    //Create Employee assigned loan file
+    if(user.UID>200 && user.UID<=1000){
+        bzero(path,PATH_LEN);
+        snprintf(path,PATH_LEN,"%d/assignedloan.dat",user.UID);
+
+        fd = open(path,O_WRONLY|O_CREAT,0766);
+        if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
+        close(fd);
+    }
+    return 1;
+}
+//change password
+int change_password(char *username,char *currpass,char *newpass) {
+    struct credential user, file_user;
+    int found = 0;
+
+    snprintf(user.username,MAX_LEN,"%s",username);
+    snprintf(user.password,MAX_LEN,"%s",currpass);
+
+    int fd = open("credentials.dat", O_RDWR);
+    if (fd < 0) {
+        perror("Error opening file");
+        return -1;
+    }
+
+    // Search for the user and get the file offset
+    off_t offset = 0;
+    while (read(fd, &file_user, sizeof(struct credential)) > 0) {
+        if (strcmp(user.username, file_user.username) == 0 &&
+            strcmp(user.password, file_user.password) == 0) {
+            found = 1;
+            break;
+        }
+        offset += sizeof(struct credential);
+    }
+
+    if (!found) {
+        printf("No User Found\n");
+        close(fd);
+        return 0;
+    }
+
+    //Setting new Password
+    snprintf(user.password,MAX_LEN,"%s",newpass);
+    user.UID=file_user.UID;
+    user.active=file_user.active;
+
+    lseek(fd, offset, SEEK_SET);
+
+    if (write(fd, &user, sizeof(struct credential)) < 0) {
+        perror("Error writing to file");
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return user.UID;
+}
 void transactionEntry(int userID,int toUserID,char *type,long int bal){
     struct transHistory tranHist;
     char path[PATH_LEN];
@@ -219,253 +361,19 @@ int withdrawFund(int userID,int touserID,long int debitAmount){
     transactionEntry(userID,touserID,"debit",debitAmount);
     return 1;
 }
-//change password
-int change_password(char *username,char *currpass,char *newpass) {
-    struct credential user, file_user;
-    int found = 0;
 
-    snprintf(user.username,MAX_LEN,"%s",username);
-    snprintf(user.password,MAX_LEN,"%s",currpass);
-
-    int fd = open("credentials.dat", O_RDWR);
-    if (fd < 0) {
-        perror("Error opening file");
-        return -1;
-    }
-
-    // Search for the user and get the file offset
-    off_t offset = 0;
-    while (read(fd, &file_user, sizeof(struct credential)) > 0) {
-        if (strcmp(user.username, file_user.username) == 0 &&
-            strcmp(user.password, file_user.password) == 0) {
-            found = 1;
-            break;
-        }
-        offset += sizeof(struct credential);
-    }
-
-    if (!found) {
-        printf("No User Found\n");
-        close(fd);
-        return 0;
-    }
-
-    //Setting new Password
-    snprintf(user.password,MAX_LEN,"%s",newpass);
-    user.UID=file_user.UID;
-    user.active=file_user.active;
-
-    lseek(fd, offset, SEEK_SET);
-
-    if (write(fd, &user, sizeof(struct credential)) < 0) {
-        perror("Error writing to file");
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    return user.UID;
-}
-
-void deleterecord(const char* uname, const char* pwd) {
-    struct credential nextRecord;
-    int fd1 = open("credentials.dat", O_RDONLY);
-    if (fd1 < 0) {
-        perror("Error opening credentials.dat");
-        return;
-    }
-
-    int fd2 = open("temp.dat", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if (fd2 < 0) {
-        perror("Error opening temp.dat");
-        close(fd1);
-        return;
-    }
-
-    while (read(fd1, &nextRecord, sizeof(struct credential)) > 0) {
-        if (strcmp(nextRecord.username, uname) == 0 &&
-            strcmp(nextRecord.password, pwd) == 0) {
-            continue;
-        }
-        write(fd2, &nextRecord, sizeof(struct credential));
-    }
-
-    close(fd1);
-    close(fd2);
-
-    remove("credentials.dat");
-    rename("temp.dat", "credentials.dat");
-}
-
-// Function to register a user by saving credentials to a file
-int register_user() {
-    struct credential user;
-    struct userDetails udetail;
-    struct acbalance ubal;
-    struct transHistory utrans;
-    struct feedback ufeed;
-    char path[PATH_LEN];
-
-    //Input credentials
-    printf("Register\n");
-    printf("Enter UID: ");
-    scanf("%d",&user.UID);
-    printf("Enter username: ");
-    scanf("%s", user.username);
-    printf("Enter password: ");
-    scanf("%s", user.password);
-    getchar();
-
-    //Input User details
-    printf("Enter Name: ");
-    fgets(udetail.name, sizeof(udetail.name), stdin);
-    udetail.name[strcspn(udetail.name, "\n")] = 0;
-
-    printf("Enter Email: ");
-    fgets(udetail.email, sizeof(udetail.email), stdin);
-    udetail.email[strcspn(udetail.email, "\n")] = 0;
-
-    printf("Enter phone: ");
-    fgets(udetail.phone, sizeof(udetail.phone), stdin);
-    udetail.phone[strcspn(udetail.phone, "\n")] = 0;
-
-    udetail.UID = user.UID;
-    if(user.UID>1000){
-        snprintf(udetail.designation,MAX_LEN,"%s","Customer");
-    }
-    else if(user.UID>200 && user.UID<=1000){
-        snprintf(udetail.designation,MAX_LEN,"%s","Employee");
-    }
-    else if(user.UID>50 && user.UID<=200){
-        snprintf(udetail.designation,MAX_LEN,"%s","Manager");
-    }
-    else if(user.UID>=1 && user.UID<=50){
-        snprintf(udetail.designation,MAX_LEN,"%s","Administrator");
-    }
-    //User bank balance Intialize
-    ubal.balance = 0;
-
-    int fd = open("credentials.dat", O_WRONLY | O_APPEND | O_CREAT, 0600);
-    if (fd < 0) {
-        perror("Error opening file");
-        return 0;
-    }
-
-    user.active =1;
-    if (write(fd, &user, sizeof(struct credential)) < 0) {
-        perror("Error writing to file");
-        close(fd);
-        return 0;
-    }
-    close(fd);
-
+int userIdExist(int userID){
+    struct credential ucred;
     
-
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d",user.UID);
-    mkdir(path,0766);
-
-
-    //Creating User detail File
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d/userdetail.dat",user.UID);
-
-    fd = open(path,O_WRONLY|O_CREAT,0766);
-    if(fd<0) fprintf(stderr,"Error creating <%s> files",path);
-    write(fd,&udetail,sizeof(struct userDetails));
-    close(fd);
-
-    //Creating User File for account balance
-    if(user.UID>1000){
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d/balance.dat",user.UID);
-
-    fd = open(path,O_WRONLY|O_CREAT,0766);
-    if(fd<0) fprintf(stderr,"Error creating <%s> files",path);
-    write(fd,&ubal,sizeof(struct acbalance));
-    close(fd);
-
-    //Creating User Transaction History file
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d/transactionHist.dat",user.UID);
-
-    fd = open(path,O_WRONLY|O_CREAT,0766);
-    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
-    close(fd);
-
-    //Creating User Feedback File
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d/feedback.dat",user.UID);
-
-    fd = open(path,O_WRONLY|O_CREAT,0766);
-    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
-    close(fd);
-
-    //Creating User Loan detail file
-    bzero(path,PATH_LEN);
-    snprintf(path,PATH_LEN,"%d/userloandetail.dat",user.UID);
-
-    fd = open(path,O_WRONLY|O_CREAT,0766);
-    if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
-    close(fd);
-    }
-
-    //Create Employee assigned loan file
-    if(user.UID>200 && user.UID<=1000){
-        bzero(path,PATH_LEN);
-        snprintf(path,PATH_LEN,"%d/assignedloan.dat",user.UID);
-
-        fd = open(path,O_WRONLY|O_CREAT,0766);
-        if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
-        close(fd);
-    }
-    return 1;
-}
-
-int login(char uname[MAX_LEN],char upwd[MAX_LEN]) {
-    struct credential file_user;
-
-    int fd = open("credentials.dat", O_RDONLY);
-    if (fd < 0) {
-        perror("Error opening file");
-        return -1;
-    }
-
-    while (read(fd, &file_user, sizeof(struct credential)) > 0) {
-        if (strcmp(uname, file_user.username) == 0 &&
-            strcmp(upwd, file_user.password) == 0) {
+    int fd = open("credentials.dat",O_RDONLY);
+    while (read(fd,&ucred,sizeof(struct credential))>0){
+        if(ucred.UID==userID){
             close(fd);
-            if(file_user.active==0) return 0;
-            return file_user.UID;
+            return 1;
         }
     }
-
     close(fd);
-    return -1;
-}
-
-void printUserdetail(int userID){
-    char path[PATH_LEN];
-    struct userDetails userstat;
-
-    snprintf(path,PATH_LEN,"%d/userdetail.dat",userID);
-    int fd = open(path,O_RDONLY);
-    read(fd,&userstat,sizeof(struct userDetails));
-    close(fd);
-    printf("User Information-----------------------------\n");
-    printf("|Desgination: %s\n|Your ID: %d\n|Name: %s\n|Email: %s\n|Phone: %s",userstat.designation,userstat.UID,userstat.name,userstat.email,userstat.phone);
-}
-
-void printCredFile(){
-    char path[]="credentials.dat";
-    struct credential user;
-
-    int fd = open(path,O_RDONLY);
-    printf("Fetched Data--------------------------\n");
-    while(read(fd,&user,sizeof(struct credential))>0){
-        printf("%d\t%d\t%s\t%s\n",user.UID,user.active,user.username,user.password);
-    }
-    close(fd);
-    return;
+    return 0;
 }
 
 int managerUserRoles(int oldID,int newID){
@@ -621,41 +529,10 @@ int managerUserRoles(int oldID,int newID){
     snprintf(oldDir,MAX_LEN,"%d",oldID);
     snprintf(newDir,MAX_LEN,"%d",newID);
     rename(oldDir,newDir);
-    return 1;   
+    return 1; 
 }
-void viewUserLoan(int userID){
-    struct loanApplication loanEntry;
-    char path[MAX_LEN];
 
-    snprintf(path,MAX_LEN,"%d/userloandetail.dat",userID);
-    int fd = open(path, O_RDONLY);
-    if (fd < 0) {
-        perror("Error opening the file");
-        return;
-    }
-
-    printf("LoanID\t#Application\tAmount(\u20B9)\tStatus\n");
-    printf("----------------------------------------------\n");
-    while (read(fd,&loanEntry,sizeof(struct loanApplication))>0){
-        printf("%s\t%d\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
-    }
-    close(fd);
-}
-void viewReceivedLoanApplication() {
-    struct assignedLoan loan;
-    int fd = open("managerDB/loanApplication.dat", O_RDONLY);
-    
-    if (fd < 0) {
-        perror("Error opening the file");
-        return;
-    }
-    printf("LoanID\tUserID\tUsername\tAmount(\u20B9)\tStatus\n");
-    printf("----------------------------------------------\n");
-    while (read(fd, &loan, sizeof(struct assignedLoan)) > 0) {
-        printf("%s\t%d\t%s\t\u20B9%ld\t%s\n", loan.loanID, loan.uid, loan.username, loan.amount, loan.status);
-    }
-    close(fd);
-}
+//Loan Component
 int sendLoanAppToManager(struct userDetails user,struct loanApplication loanForm){
     struct assignedLoan recievedForm;
 
@@ -740,8 +617,7 @@ int applytoLoan(int userID,long int amount){
     sendLoanAppToManager(user,loanForm);
     return 1;
 }
-
-void addFeedback(int starRating, const char *feedbackMessage) {
+int addFeedback(int starRating, const char *feedbackMessage) {
     struct feedback fbEntry;
     int fd;
 
@@ -751,137 +627,13 @@ void addFeedback(int starRating, const char *feedbackMessage) {
     fd = open("managerDB/feedback.dat", O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (fd < 0) {
         perror("Error opening feedback.dat");
-        return;
+        return -1;
     }
 
     if (write(fd, &fbEntry, sizeof(struct feedback)) < 0) {
         perror("Error writing feedback");
+        return -1;
     }
     close(fd);
-}
-void viewAllFeedback() {
-    struct feedback fbEntry;
-    
-    int fd = open("managerDB/feedback.dat", O_RDONLY);
-    if (fd < 0) {
-        perror("Error opening feedback.dat");
-        return;
-    }
-
-    printf("All Feedbacks------------------------------\n");
-    while (read(fd, &fbEntry, sizeof(struct feedback)) > 0) {
-        printf("Rating: %d stars\nFeedback: %s\n",fbEntry.star,fbEntry.fb);
-        printf("-------------------------------------------\n");
-    }
-    close(fd);
-}
-int main() {
-    int choice, auth;
-    
-    while (1) {
-        printf("\n1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n8. Activate/Deactivate User\n9. Update User Entry\n10. Modify User role\n11. Apply to loan\n12. Add Feedback\n");
-        printf("Enter your choice: ");
-        scanf("%d", &choice);
-
-        switch (choice) {
-            case 1:
-                register_user();
-                break;
-            case 2:
-                char s1[MAX_LEN],s2[MAX_LEN];
-                printf("Enter Username: ");
-                scanf("%s",s1);
-                printf("Enter Password: ");
-                scanf("%s",s2);
-                auth = login(s1,s2);
-                if (auth) {
-                    printf("Login successful!\n");
-                } else {
-                    printf("Login failed. Invalid credentials.\n");
-                }
-                break;
-            case 3:
-                char inp1[MAX_LEN],inp2[MAX_LEN],inp3[MAX_LEN];
-                printf("Enter your username: ");
-                scanf("%s", inp1);
-                
-                printf("Enter your current password: ");
-                scanf("%s",inp2);
-                
-                printf("Enter new password: ");
-                scanf("%s",inp3);
-                change_password(inp1,inp2,inp3);
-                break;
-            case 4:
-                printf("Exiting...\n");
-                exit(0);
-            case 5:
-                int id;
-                printf("Enter User ID: ");
-                scanf("%d",&id);
-                printUserdetail(id);
-                break;
-            case 6:
-                printCredFile();
-                break;
-            case 7:
-                char u1[MAX_LEN],u2[MAX_LEN];
-                printf("Enter Username: ");
-                scanf("%s",u1);
-                printf("Enter Password: ");
-                scanf("%s",u2);
-                deleterecord(u1,u2);
-                break;     
-            case 8:
-                int userid;
-                printf("Enter User Id: ");
-                scanf("%d",&userid);
-                active_deactiveUser(userid);
-                break;
-            case 9:
-                int id1,entry;
-                printf("Enter UserID: ");
-                scanf("%d",&id1);;
-                printf("Which Entry to change?: ");
-                scanf("%d",&entry);
-                modifyUserDetail(id1,entry);
-                break;
-            case 10:
-                int oldid,newid;
-                printf("Enter old ID: ");
-                scanf("%d",&oldid);
-                printf("Enter new ID: ");
-                scanf("%d",&newid);
-                managerUserRoles(oldid,newid);
-                break;
-            case 11:
-                int uid1;
-                long int amount;
-                printf("Enter UID: ");
-                scanf("%d",&uid1);
-                printf("Enter amount: ");
-                scanf("%ld",&amount);
-                applytoLoan(uid1,amount);
-                viewReceivedLoanApplication();
-                viewUserLoan(uid1);
-                break;;
-            case 12:
-                int stars;
-                char fb[256];
-                printf("Give Stars: ");
-                scanf("%d",&stars);
-                getchar();
-                fgets(fb,sizeof(fb),stdin);
-                fb[strcspn(fb, "\n")] = 0;
-                addFeedback(stars,fb);
-                viewAllFeedback();
-                break;
-            default:
-                printf("Invalid choice.\n");
-        }
-
-        sleep(1);  // Pause for a moment
-    }
-
-    return 0;
+    return 1;
 }
