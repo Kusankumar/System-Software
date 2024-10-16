@@ -214,7 +214,7 @@ int main(){
                     }
                     else if(choice==9){
                         //View My loans
-                        viewUserLoan(currUserID);
+                        viewCustomerLoan(currUserID);
                     }else if(choice==10){
                         break;
                     }else{
@@ -222,15 +222,403 @@ int main(){
                     }
                 }
             }
-            /*
             else if(auth>200 && auth<=1000){
                 //welcome employee
-                printf("You're In EMployee ZOne\n");
-                sleep(3);
-            }/*
+                int choice,currUserID;
+                char employeeMenu[]="1. Add New Customer\n2. Modify Customer Details\n3. Process Loan Application\n4. Approve/Reject a Loan\n5. View assigned Loan\n6. change password\n7. Logout\n";
+                
+                currUserID = auth;
+                printUserdetail(currUserID);
+                while (1){
+                    printf("Menu---------------------------------------------\n");
+                    printf("%s",employeeMenu);
+
+                    do{
+                        printf("Enter Choice: ");
+                        scanf("%d",&choice);
+                        if(choice<1 || choice>7) printf("Invalid choice\n");
+                    }while(choice<1 || choice>7);
+
+                    write(sockfd,&choice,sizeof(int));
+
+                    if(choice==1){
+                        //Register New Customer
+                        int UID;
+                        char username[MAX_LEN];
+                        char pwd[MAX_LEN];
+                        char name[MAX_LEN];
+                        char email[MAX_LEN];
+                        char phone[MAX_LEN];
+                        int crossverify;
+                        
+                        //Enter New User ID
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        do{
+                            printf("%s",buff);
+                            scanf("%d",&UID);
+                            if(UID<=1000) printf("Invalid Customer ID\n");
+                        }while(UID<=1000);
+
+                        write(sockfd,&UID,sizeof(int));
+
+                        read(sockfd,&crossverify,sizeof(int));
+                        write(sockfd,"sync",strlen("sync"));
+                        if(crossverify==1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+
+                        //Enter New Username
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",username);
+                        write(sockfd,username,strlen(username));
+                        
+                        //Enter New Password
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",pwd);
+                        write(sockfd,pwd,strlen(pwd));
+                        
+                        //Enter New Employee Name
+                        getchar();
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        fgets(name, MAX_LEN-1, stdin);
+                        name[strcspn(name, "\n")] = 0;
+                        write(sockfd,name,strlen(name));
+                            
+
+                        //Enter New User Email
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",email);
+                        write(sockfd,email,strlen(email));
+
+                        //Enter New User Phone
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",phone);
+                        write(sockfd,phone,strlen(phone));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);                       
+                    }else if(choice==2){
+                        int uid,change,verifyUser,whichDetail;
+                        char name[MAX_LEN];
+                        char email[MAX_LEN];
+                        char phone[MAX_LEN];
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        do{
+                            printf("%s",buff);
+                            scanf("%d",&uid);
+                            if(uid<=1000) printf("Invalid Customer ID\n");
+                        }while(uid<=1000);
+                        write(sockfd,&uid,sizeof(int));
+
+                        read(sockfd,&verifyUser,sizeof(int));
+                        write(sockfd,"sync",strlen("sync"));
+                        if(verifyUser!=1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+
+                        printf("%s",buff);
+                        do{
+                            printf("Enter: ");
+                            scanf("%d",&change);
+                            if(change<1 || change>3) printf("InvalidChoice\n");
+                        }while(change<1 || change>3);
+                        //Getting what to change
+                        write(sockfd,&change,sizeof(int));
+                        
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+
+                        char clean;
+                        while ((clean = getchar()) != '\n' && clean != EOF);
+                        if(change==1){
+                            printf("Enter New Name: ");
+                            fgets(name, MAX_LEN-1, stdin);
+                            name[strcspn(name, "\n")] = 0;
+                            write(sockfd,name,strlen(name));
+                        }else if(change==2){
+                            printf("Enter New Email: ");
+                            fgets(email, MAX_LEN-1, stdin);
+                            name[strcspn(name, "\n")] = 0;
+                            write(sockfd,email,strlen(email));
+                        }else if(change==3){
+                            printf("Enter New Phone: ");
+                            fgets(phone, MAX_LEN-1, stdin);
+                            phone[strcspn(phone, "\n")] = 0;
+                            write(sockfd,phone,strlen(phone));
+                        }
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }
+                    else if(choice==3){
+                        //Process
+                        char loanID[20];
+                        
+                        viewAssignedLoan(currUserID);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",loanID);
+                        write(sockfd,loanID,sizeof(loanID));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }
+                    else if(choice==4){
+                        //Accept/Reject Loan
+                        char loanID[20];
+                        int act;
+                        
+                        viewAssignedLoan(currUserID);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",loanID);
+                        write(sockfd,loanID,sizeof(loanID));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+
+                        do{
+                            printf("Enter choice: ");
+                            scanf("%d",&act);
+                            if(act<1 || act>2) printf("Invalid Input\n");
+                        }while(act<1 || act>2);
+                        write(sockfd,&act,sizeof(int));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }
+                    else if(choice==5){
+                        _Bool permission;
+                        read(sockfd,&permission,sizeof(_Bool));
+                        if(permission){
+                            viewAssignedLoan(currUserID);
+                        }
+                    }
+                    else if(choice==6){
+                        char username[MAX_LEN],currPwd[MAX_LEN],newPwd[MAX_LEN];
+                        int userExistStatus,updateStatus;
+
+                        //Enter Username
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",username);
+                        write(sockfd,username,strlen(username));
+
+                        //Enter Password
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",currPwd);
+                        write(sockfd,currPwd,strlen(currPwd));
+
+                        //Verify account
+                        read(sockfd,&userExistStatus,sizeof(int));
+                        //sync code
+                        write(sockfd,"sync",strlen("sync"));
+                        if(userExistStatus<=0 || userExistStatus!=currUserID){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+
+                        //Enter new Password
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",newPwd);
+                        write(sockfd,newPwd,strlen(newPwd));
+
+                        //password change status
+                        read(sockfd,&updateStatus,sizeof(int));
+                        //sync code
+                        write(sockfd,"sync",strlen("sync"));
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }
+                    else if(choice==7){break;}
+                }
+                
+            }
             else if(auth>50 && auth<=200){
                 //Welcome manager
-            }*/
+                int choice,currUserID;
+                char managerMenu[]="\n1. Activate Customer Account\n2. Deactivate Customer Account\n3. Assign Loan Application to Employee\n4. View all Loan Application Recieved\n5. Change Password\n6. Review Feedback\n7. Logout\n";
+
+                currUserID = auth;
+                printUserdetail(currUserID);
+                while(1){
+                    printf("Menu---------------------------------------------\n");
+                    printf("%s",managerMenu);
+                    
+                    do{
+                        printf("Enter Choice: ");
+                        scanf("%d",&choice);
+                        if(choice<1 || choice>7) printf("Invalid choice\n");
+                    }while(choice<1 || choice>7);
+
+                    write(sockfd,&choice,sizeof(int));
+
+                    if(choice==1){
+                        int custID;
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);;
+                        buff[bytes]='\0';
+                        
+                        do{
+                            printf("%s",buff);
+                            scanf("%d",&custID);
+                            if(custID<=1000)printf("Invalid Customer ID\n");
+                        }while(custID<=1000);
+                        write(sockfd,&custID,sizeof(int));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }else if(choice==2){
+                        int custID;
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);;
+                        buff[bytes]='\0';
+
+                        do{
+                            printf("%s",buff);
+                            scanf("%d",&custID);
+                            if(custID<=1000)printf("Invalid Customer ID\n");
+                        }while(custID<=1000);
+                        write(sockfd,&custID,sizeof(int));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }else if(choice==3){
+                        //Assigning loan to employee
+                        int employeeID;
+                        char loanID[16];
+                        
+                        viewAssignedLoan(currUserID);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes] = '\0';
+                        printf("%s",buff);
+                        scanf("%s",loanID);
+                        write(sockfd,loanID,sizeof(loanID));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        do {
+                            printf("%s",buff);
+                            scanf("%d",&employeeID);
+                            if(employeeID<=200 || employeeID>1000) printf("Invalid EmployeeID\n");
+                        }while(employeeID<=200 || employeeID>1000);
+                        write(sockfd,&employeeID,sizeof(int));
+
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }else if(choice==4){
+                        _Bool permission;
+                        read(sockfd,&permission,sizeof(_Bool));
+                        if(permission){
+                            viewAssignedLoan(currUserID);
+                        }
+                    }else if(choice==5){
+                        //Updating password
+                        char username[MAX_LEN],currPwd[MAX_LEN],newPwd[MAX_LEN];
+                        int userExistStatus,updateStatus;
+
+                        //Enter Username
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",username);
+                        write(sockfd,username,strlen(username));
+
+                        //Enter Password
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",currPwd);
+                        write(sockfd,currPwd,strlen(currPwd));
+
+                        //Verify account
+                        read(sockfd,&userExistStatus,sizeof(int));
+                        //sync code
+                        write(sockfd,"sync",strlen("sync"));
+                        if(userExistStatus<=0){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+
+                        //Enter new Password
+                        bzero(buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                        scanf("%s",newPwd);
+                        write(sockfd,newPwd,strlen(newPwd));
+
+                        //password change status
+                        read(sockfd,&updateStatus,sizeof(int));
+                        //sync code
+                        write(sockfd,"sync",strlen("sync"));
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
+                    }
+                    else if(choice==6){
+                        //review Feedback
+                        _Bool permission;
+                        read(sockfd,&permission,sizeof(_Bool));
+                        if(permission){
+                            viewAllFeedback();
+                        }else printf("You don't have permission\n");
+                    }
+                    else if(choice==7){break;}
+                }
+            }
             else if(auth>=1 && auth<=50){
                 //Client side Administrator Code
                 int choice,currUserID;
@@ -334,6 +722,7 @@ int main(){
                         char name[MAX_LEN];
                         char email[MAX_LEN];
                         char phone[MAX_LEN];
+                        int crossverify;
                         
 
                         //Enter New User ID
@@ -347,6 +736,15 @@ int main(){
                         }while(UID<=200 || UID>1000);
 
                         write(sockfd,&UID,sizeof(int));
+
+                        read(sockfd,&crossverify,sizeof(int));
+                        write(sockfd,"sync",strlen("sync"));
+                        if(crossverify==1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
 
                         //Enter New Username
                         bzero(buff,BUFF_SIZE);
@@ -522,7 +920,6 @@ int main(){
                     }
                     else if(choice==5){
                         //Change Password
-                        //change_password(char *username,char *currpass,char *newpass)
                         char username[MAX_LEN],currPwd[MAX_LEN],newPwd[MAX_LEN];
                         int userExistStatus,updateStatus;
 

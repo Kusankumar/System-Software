@@ -88,7 +88,7 @@ void printTransHistory(int userID){
     return;
 
 }
-void viewUserLoan(int userID){
+void viewCustomerLoan(int userID){
     struct loanApplication loanEntry;
     char path[MAX_LEN];
 
@@ -103,6 +103,47 @@ void viewUserLoan(int userID){
     printf("------------------------------------------------\n");
     while (read(fd,&loanEntry,sizeof(struct loanApplication))>0){
         printf("%s\t%d\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
+    }
+    close(fd);
+}
+void viewAssignedLoan(int userID) {
+    struct assignedLoan loan;
+    char path[PATH_LEN];
+
+    if(userID>200 && userID<=1000)
+        snprintf(path,PATH_LEN,"%d/assignedloan.dat",userID);
+    else if(userID>50 && userID<=200)
+        snprintf(path,PATH_LEN,"managerDB/loanApplication.dat");
+    else{
+        fprintf(stderr,"Not Allowed!\n");
+        return;
+    }
+    int fd = open(path, O_RDONLY);
+    
+    if (fd < 0) {
+        perror("Error opening the file");
+        return;
+    }
+    printf("LoanID\tUserID\tUsername\tAmount(\u20B9)\tStatus\n");
+    printf("------------------------------------------------------\n");
+    while (read(fd, &loan, sizeof(struct assignedLoan)) > 0) {
+        printf("%s\t%d\t%-10s\t\u20B9%-10ld\t%-10s\n", loan.loanID, loan.uid, loan.username, loan.amount, loan.status);
+    }
+    close(fd);
+}
+void viewAllFeedback() {
+    struct feedback fbEntry;
+    
+    int fd = open("managerDB/feedback.dat", O_RDONLY);
+    if (fd < 0) {
+        perror("Error opening feedback.dat");
+        return;
+    }
+
+    printf("All Feedbacks------------------------------------\n");
+    while (read(fd, &fbEntry, sizeof(struct feedback)) > 0) {
+        printf("Rating: %d stars\nFeedback: %s\n",fbEntry.star,fbEntry.fb);
+        printf("-------------------------------------------------\n");
     }
     close(fd);
 }

@@ -29,7 +29,6 @@ int clientHandler(int sockfd){
         //receive loginAct from client
         read(sockfd,&loginAct,sizeof(int));
 
-        
         //Login User
         if(loginAct==1){
             char username[UCSIZE],passwd[UCSIZE];
@@ -65,24 +64,21 @@ int clientHandler(int sockfd){
                 int cutomerExitStatus = customerZone(sockfd,auth);
                 if(cutomerExitStatus!=1) fprintf(stderr,"Client Module Terminated unexpectedly\n");
             }
-            /*
             else if(auth>200 && auth<=1000){
                 //welcome employee
-                char employeeMenu[]="1. Add New User\n2. Modify Customer\n3. Process Loan Application\n4. View assigned Loan\n5. change password\n6. Logout\nEnter choice: ";
-
+                int employeeExitStatus = employeeZone(sockfd,auth);
+                if(employeeExitStatus!=1) fprintf(stderr,"Employee Module Terminated unexpectedly\n");
             }
             else if(auth>50 && auth<=200){
                 //Welcome manager
-                char managerMenu[]="1. Activate Customer\n2.Deactivate Customer\n3. ALA to Employee\n4. Review Customer Feedback\n5. Logout\nEnter your choice: ";
-
-            }*/
-           
+                int managerExitStatus = managerZone(sockfd,auth);
+                if(managerExitStatus!=1) fprintf(stderr,"Manager Module Terminated unexpectedly\n");
+            }
             else if(auth>=1 && auth<=50){
                 //welcome admin
                 int adminExitStatus = administratorZone(sockfd,auth);
                 if(adminExitStatus!=1) fprintf(stderr,"Client Module Terminated unexpectedly\n");
             }
-
         }
         else if(loginAct==2){
             break;

@@ -623,7 +623,7 @@ int managerUserRoles(int oldID,int newID){
     rename(oldDir,newDir);
     return 1;   
 }
-void viewUserLoan(int userID){
+void viewCustLoan(int userID){
     struct loanApplication loanEntry;
     char path[MAX_LEN];
 
@@ -637,22 +637,28 @@ void viewUserLoan(int userID){
     printf("LoanID\t#Application\tAmount(\u20B9)\tStatus\n");
     printf("----------------------------------------------\n");
     while (read(fd,&loanEntry,sizeof(struct loanApplication))>0){
-        printf("%s\t%d\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
+        printf("%s\t%d\t\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
     }
     close(fd);
 }
-void viewReceivedLoanApplication() {
+void viewAssignedLoan(int userID) {
     struct assignedLoan loan;
-    int fd = open("managerDB/loanApplication.dat", O_RDONLY);
+    char path[PATH_LEN];
+
+    if(userID>200 && userID<=1000)
+        snprintf(path,PATH_LEN,"%d/assignedloan.dat",userID);
+    else if(userID>50 && userID<=200)
+        snprintf(path,PATH_LEN,"managerDB/loanApplication.dat");
+    int fd = open(path, O_RDONLY);
     
     if (fd < 0) {
         perror("Error opening the file");
         return;
     }
     printf("LoanID\tUserID\tUsername\tAmount(\u20B9)\tStatus\n");
-    printf("----------------------------------------------\n");
+    printf("------------------------------------------------------\n");
     while (read(fd, &loan, sizeof(struct assignedLoan)) > 0) {
-        printf("%s\t%d\t%s\t\u20B9%ld\t%s\n", loan.loanID, loan.uid, loan.username, loan.amount, loan.status);
+        printf("%s\t%d\t%-10s\t\u20B9%-10ld\t%-10s\n", loan.loanID, loan.uid, loan.username, loan.amount, loan.status);
     }
     close(fd);
 }
@@ -775,11 +781,192 @@ void viewAllFeedback() {
     }
     close(fd);
 }
+
+int assignLoanToEmployee(int emplyID, char *loanID){
+    struct assignedLoan loanEntry;
+    char path[PATH_LEN];
+    _Bool found = 0;
+    
+    int fd1 = open("managerDB/loanApplication.dat",O_RDWR);
+    ssize_t bytes = read(fd1,&loanEntry,sizeof(struct assignedLoan));
+    if(bytes<=0){
+        printf("No Loan Application\n");
+        close(fd1);
+        return 0;
+    }
+    
+    viewAssignedLoan(80);
+    lseek(fd1,0,SEEK_SET);
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            close(fd1);
+            found=1;
+            break;
+        }
+    }
+    if(!found){
+        fprintf(stderr,"No such LoanID Exist\n");
+        return -1;
+    }
+    //Assiging to Employee
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",emplyID);
+    int fd2 = open(path,O_RDWR|O_CREAT|O_APPEND,0766);
+    if(fd2<0){
+        perror("Failed to open Employee loan file");
+        close(fd2);
+        return -2;
+    }
+
+    if(write(fd2,&loanEntry,sizeof(struct assignedLoan))<0){
+        perror("Failed to assign");
+        close(fd2);
+        return -2;
+    }
+    close(fd2);
+
+    fd1 = open("managerDB/loanApplication.dat",O_RDONLY);
+    fd2 = open("managerDB/temp.dat",O_WRONLY|O_CREAT|O_TRUNC,0766);
+
+    while (read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0) {
+            continue;
+        }
+        write(fd2,&loanEntry,sizeof(struct assignedLoan));
+    }
+
+    remove("managerDB/loanApplication.dat");
+    rename("managerDB/temp.dat","managerDB/loanApplication.dat");
+    
+    close(fd1);
+    close(fd2);
+    return 1;
+}
+int processLoan(int employID,char *loanID){
+    struct assignedLoan loanEntry;
+    struct loanApplication loanForm;
+    char path[PATH_LEN];
+    _Bool found = 0;
+    off_t offset = 0;
+
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",employID);
+    int fd1 = open(path,O_RDWR);
+    if(fd1<0){
+        perror("Failed to open assignedloan.dat");
+        return -1;
+    }
+
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            found = 1;
+            break;
+        }
+        offset+=sizeof(struct assignedLoan);
+    }
+
+    if(!found){
+        perror("No such loan Application");
+        close(fd1);
+        return 0;
+    }
+
+    snprintf(loanEntry.status,sizeof(loanEntry.status),"%s","Process");
+    lseek(fd1,offset,SEEK_SET);
+    if(write(fd1,&loanEntry,sizeof(struct assignedLoan))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd1);
+
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/userloandetail.dat",loanEntry.uid);
+    int fd2 = open(path,O_RDWR);
+    if(fd1<0){
+        perror("Failed to open userloandetail.dat");
+        return -1;
+    }
+    offset = 0;
+    while(read(fd2,&loanForm,sizeof(struct loanApplication))>0){
+        if(strcmp(loanID,loanForm.loanID)==0){break;}
+        offset+=sizeof(struct loanApplication);
+    }
+    snprintf(loanForm.status,sizeof(loanForm.status),"%s","Process");
+    lseek(fd2,offset,SEEK_SET);
+    if(write(fd2,&loanForm,sizeof(struct loanApplication))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd2);
+    return 1;
+}
+int accept_rejectLoanApp(int employID,char *loanID,int act){
+    struct assignedLoan loanEntry;
+    struct loanApplication loanForm;
+    char path[PATH_LEN],path2[PATH_LEN],path3[PATH_LEN];
+    int userID;
+    _Bool found = 0;
+    off_t offset = 0;
+
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",employID);
+    snprintf(path2,PATH_LEN,"%d/temp.dat",employID);
+    int fd1 = open(path,O_RDWR);
+    int fd2 = open(path2,O_RDWR|O_CREAT|O_TRUNC,0766);
+    if(fd1<0 || fd2<0){
+        perror("Failed to open assignedloan.dat");
+        return -1;
+    }
+
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            found = 1;
+            userID=loanEntry.uid;
+            continue;
+        }
+        write(fd2,&loanEntry,sizeof(struct assignedLoan));
+    }
+    close(fd1);
+    close(fd2);
+
+    if(!found){
+        perror("No such loan Application");
+        return 0;
+    }
+
+    bzero(path3,PATH_LEN);
+    snprintf(path3,PATH_LEN,"%d/userloandetail.dat",userID);
+    fd2 = open(path3,O_RDWR);
+    if(fd2<0){
+        perror("Failed to open userloandetail.dat");
+        return -1;
+    }
+    offset = 0;
+    while(read(fd2,&loanForm,sizeof(struct loanApplication))>0){
+        if(strcmp(loanID,loanForm.loanID)==0){break;}
+        offset+=sizeof(struct loanApplication);
+    }
+    if(act==1)
+        snprintf(loanForm.status,sizeof(loanForm.status),"%s","Accepted");
+    else if(act==2)
+        snprintf(loanForm.status,sizeof(loanForm.status),"%s","Rejected");
+    lseek(fd2,offset,SEEK_SET);
+    if(write(fd2,&loanForm,sizeof(struct loanApplication))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd2);
+
+    remove(path);
+    rename(path2,path);
+
+    return 1;
+}
 int main() {
     int choice, auth;
     
     while (1) {
-        printf("\n1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n8. Activate/Deactivate User\n9. Update User Entry\n10. Modify User role\n11. Apply to loan\n12. Add Feedback\n");
+        printf("\n1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n8. Activate/Deactivate User\n9. Update User Entry\n10. Modify User role\n11. Apply to loan\n12. Add Feedback\n13. Assigned loan to Employee\n14. View Employee/User Assigned Loan\n15. Process Loan\n16. Assign/Reject Loan\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
@@ -862,8 +1049,7 @@ int main() {
                 printf("Enter amount: ");
                 scanf("%ld",&amount);
                 applytoLoan(uid1,amount);
-                viewReceivedLoanApplication();
-                viewUserLoan(uid1);
+                viewCustLoan(uid1);
                 break;;
             case 12:
                 int stars;
@@ -875,6 +1061,49 @@ int main() {
                 fb[strcspn(fb, "\n")] = 0;
                 addFeedback(stars,fb);
                 viewAllFeedback();
+                break;
+            case 13:
+                int uid2;
+                char loanID[20];
+                viewAssignedLoan(80);
+                printf("Enter EmployeeID: ");
+                scanf("%d",&uid2);
+                printf("Enter loanID: ");
+                scanf("%s",loanID);
+                assignLoanToEmployee(uid2,loanID);
+                break;
+            case 14:
+                int uid3,uid5;
+                printf("Enter EmployeeID: ");
+                scanf("%d",&uid3);
+                printf("Enter CustomerID: ");
+                scanf("%d",&uid5);
+                printf("All Loan Application----------------\n");
+                viewAssignedLoan(80);
+                printf("Assigned loan to %d-----------------\n",uid3);
+                viewAssignedLoan(uid3);
+                printf("Customer loan %d-----------------\n",uid5);
+                viewCustLoan(uid5);
+                break;
+            case 15:
+                int uid4;char loanID2[20];
+                printf("Enter EmployeeID: ");
+                scanf("%d",&uid4);
+                viewAssignedLoan(uid4);
+                printf("Enter loanID: ");
+                scanf("%s",loanID2);
+                processLoan(uid4,loanID2);
+                break;
+            case 16:
+                int uid6,act1;char loanID3[20];
+                printf("Enter EmployeeID: ");
+                scanf("%d",&uid6);
+                viewAssignedLoan(uid6);
+                printf("Enter loanID: ");
+                scanf("%s",loanID3);
+                printf("1. Accept\n2. Reject\nEnter: ");
+                scanf("%d",&act1);
+                accept_rejectLoanApp(uid6,loanID3,act1);
                 break;
             default:
                 printf("Invalid choice.\n");

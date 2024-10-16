@@ -9,6 +9,310 @@
 #define BUFF_SIZE 1024
 #define MAX_LEN 64
 
+int employeeZone(int sockfd,int currUserID){
+    char buff[BUFF_SIZE];
+    int choice;
+    ssize_t bytes;
+
+    while(1){
+        read(sockfd,&choice,sizeof(int));
+
+        if(choice==1){
+            int UID;
+            char username[MAX_LEN];
+            char pwd[MAX_LEN];
+            char name[MAX_LEN];
+            char email[MAX_LEN];
+            char phone[MAX_LEN];
+
+            write(sockfd,"Enter Customer ID: ",strlen("Enter Customer ID: "));
+            bytes = read(sockfd,&UID,sizeof(int));
+
+            int crossverify = userIdExist(UID);
+            write(sockfd,&crossverify,sizeof(int));
+            //sync wait
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(crossverify==1){
+                write(sockfd,"This ID is not available\n",strlen("This ID is not available\n"));
+                continue;
+            }
+
+            write(sockfd,"Enter Username: ",strlen("Enter Username: "));
+            bytes = read(sockfd,username,MAX_LEN-1);
+            username[bytes]='\0';
+
+            write(sockfd,"Enter Password: ",strlen("Enter Password: "));
+            bytes = read(sockfd,pwd,MAX_LEN-1);
+            pwd[bytes]='\0';
+
+            write(sockfd,"Enter Name: ",strlen("Enter Name: "));
+            bytes = read(sockfd,name,MAX_LEN-1);
+            name[bytes]='\0';
+
+            write(sockfd,"Enter Email: ",strlen("Enter Email: "));
+            bytes = read(sockfd,email,MAX_LEN-1);
+            email[bytes]='\0';
+
+            write(sockfd,"Enter phone: ",strlen("Enter phone: "));
+            bytes = read(sockfd,phone,MAX_LEN-1);
+            phone[bytes]='\0';
+
+            int registerExitStatus = register_user(UID,username,pwd,name,email,phone);
+            if(registerExitStatus!=1)
+                write(sockfd,"Failed to Register\n",strlen("Failed to Register\n"));
+            else
+                write(sockfd,"Registraion Success\n",strlen("Registraion Success\n"));
+        }else if(choice==2){
+            int uid,change,whichDetail,checkUpdateStatus,verifyUser;
+            char name[MAX_LEN];
+            char email[MAX_LEN];
+            char phone[MAX_LEN];
+
+            write(sockfd,"Enter Customer ID: ",strlen("Enter Customer ID: "));
+            bytes = read(sockfd,&uid,sizeof(uid));
+
+            verifyUser = userIdExist(uid);
+            write(sockfd,&verifyUser,sizeof(int));
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(verifyUser!=1){
+                write(sockfd,"User doesn't Exit\n",strlen("User doesn't Exit\n"));
+                continue;
+            }
+
+            write(sockfd,"Which detail to change?\n1. Name\n2. Email\n3. Phone\n",strlen("Which detail to change?\n1. Name\n2. Email\n3. Phone\n"));
+            bytes = read(sockfd,&change,sizeof(int));
+
+            write(sockfd,"sync",strlen("sync"));
+            if(change==1){
+                //Get new Name
+                bytes = read(sockfd,name,MAX_LEN-1);
+                name[bytes]='\0';
+
+                checkUpdateStatus = modifyUserDetail(uid,change,name);
+            }else if(change==2){
+                //Get new Email
+                bytes = read(sockfd,email,MAX_LEN-1);
+                name[bytes]='\0';
+
+                checkUpdateStatus = modifyUserDetail(uid,change,email);
+            }else if(change==3){
+                //Get new phone
+                bytes = read(sockfd,phone,MAX_LEN-1);
+                name[bytes]='\0';
+
+                checkUpdateStatus = modifyUserDetail(uid,change,phone);                
+            }
+            if(checkUpdateStatus!=1) write(sockfd,"Failed to update\n",strlen("Failed to update\n"));
+            else write(sockfd,"Successfully Updated\n",strlen("Successfully Updated\n"));
+        }
+        else if(choice==3){
+            //Process Loan
+            char loanID[20];
+
+            write(sockfd,"Enter LoanID: ",strlen("Enter LoanID: "));
+            read(sockfd,loanID,sizeof(loanID));
+
+            int processStatus = processLoan(currUserID,loanID);
+            if(processStatus==0)
+                write(sockfd,"No Such LoanID Exist\n",strlen("No Such LoanID Exist\n"));
+            else if(processStatus==1)
+                write(sockfd,"Success!\n",strlen("Success!\n"));
+            else
+                write(sockfd,"Failed to process Loan\n",strlen("Failed to process Loan\n"));
+        }
+        else if(choice==4){
+            //Acccpt/Reject Loan
+            char loanID[20];
+            int act;
+
+            write(sockfd,"Enter LoanID: ",strlen("Enter LoanID: "));
+            read(sockfd,loanID,sizeof(loanID));
+
+            write(sockfd,"1. Accept\n2. Reject\n",strlen("1. Accept\n2. Reject\n"));
+            read(sockfd,&act,sizeof(int));
+
+            int acceptanceStatus = accept_rejectLoanApp(currUserID,loanID,act);
+            if(acceptanceStatus==0)
+                write(sockfd,"No Such LoanID Exist\n",strlen("No Such LoanID Exist\n"));
+            else if(acceptanceStatus==1)
+                write(sockfd,"Success!\n",strlen("Success!\n"));
+            else
+                write(sockfd,"Failed to process Loan\n",strlen("Failed to process Loan\n"));
+        }
+        else if(choice==5){
+            _Bool permission = 1;
+            write(sockfd,&permission,sizeof(_Bool));
+        }
+        else if(choice==6){
+            char username[MAX_LEN],currPwd[MAX_LEN],newPwd[MAX_LEN];
+
+            write(sockfd,"Enter Username: ",strlen("Enter Username: "));
+            bytes = read(sockfd,username,MAX_LEN);
+            username[bytes]='\0';
+
+            write(sockfd,"Enter Current Password: ",strlen("Enter Current Password: "));
+            bytes = read(sockfd,currPwd,MAX_LEN);
+            currPwd[bytes]='\0';
+
+            //verify account
+            int userExistStatus = login(username,currPwd);
+            write(sockfd,&userExistStatus,sizeof(int));
+            //Sync code
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(userExistStatus==0){
+                write(sockfd,"Account is Deactive\n",strlen("Account is Deactive\n"));
+                continue;
+            }
+            else if(userExistStatus!=currUserID){
+                write(sockfd,"Wrong Credentials!\n",strlen("Wrong Credentials!\n"));
+                continue;
+            }
+
+            //Get new password
+            write(sockfd,"Enter New Password: ",strlen("Enter New Password: "));
+            bytes = read(sockfd,newPwd,MAX_LEN);
+            newPwd[bytes]='\0';
+
+            //password change status
+            int updateStatus = change_password(username,currPwd,newPwd);
+            write(sockfd,&updateStatus,sizeof(int));
+            //Sync code
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(updateStatus!=currUserID){
+                write(sockfd,"Failed to Update password\n",strlen("Failed to Update password\n"));
+            }
+            else
+                write(sockfd,"Password Updated successfully\n",strlen("Password Updated successfully\n"));
+        }
+        else if(choice==7){break;}
+    }
+    return 1;
+}
+
+int managerZone(int sockfd,int currUserID){
+    char buff[BUFF_SIZE];
+    int choice;
+    ssize_t bytes;
+
+    while (1){
+        read(sockfd,&choice,sizeof(int));
+        
+        if(choice==1){
+            int custID;
+            
+            write(sockfd,"Enter Customer ID: ",strlen("Enter Customer ID: "));
+            read(sockfd,&custID,sizeof(int));
+            
+            int status = active_deactiveUser(custID,1);
+            if(status==1){
+                write(sockfd,"Success!\n",strlen("Success!\n"));
+            }else if(status==0){
+                write(sockfd,"Already Activated\n",strlen("Already Activated\n"));
+            }else if(status==-1){
+                write(sockfd,"No User Found!\n",strlen("No User Found!\n"));
+            }
+            else if(status==-2){
+                write(sockfd,"Failed to activate\n",strlen("Failed to activate\n"));
+            }
+        }else if(choice==2){
+            int custID;
+            write(sockfd,"Enter Customer ID: ",strlen("Enter Customer ID: "));
+            read(sockfd,&custID,sizeof(int));
+
+            int status = active_deactiveUser(custID,0);
+            if(status==1){
+                write(sockfd,"Success!\n",strlen("Success!\n"));
+            }else if(status==0){
+                write(sockfd,"Already deactivated\n",strlen("Already deactivated\n"));
+            }else if(status==-1){
+                write(sockfd,"No User Found!\n",strlen("No User Found!\n"));
+            }
+            else if(status==-2){
+                write(sockfd,"Failed to deactivate\n",strlen("Failed to deactivate\n"));
+            }
+        }
+        else if (choice==3){
+            //Assigning loan to employee
+            int employeeID;
+            char loanID[16];
+
+            write(sockfd,"Enter LoanID to assign: ",strlen("Enter LoanID to assign: "));
+            read(sockfd,loanID,sizeof(loanID));
+            printf("%s",loanID);
+
+            write(sockfd,"Enter Employee ID to assign: ",strlen("Enter Employee ID to assign: "));
+            read(sockfd,&employeeID,sizeof(int));
+
+            if(userIdExist(employeeID)!=1){
+                write(sockfd,"Employee Doesn't Exist\n",strlen("Employee Doesn't Exist\n"));
+                continue;
+            }
+            int assginedStatus = assignLoanToEmployee(employeeID,loanID);
+            if(assginedStatus==1){
+                write(sockfd,"Successfully Assigned!\n",strlen("Successfully Assigned!\n"));
+            }else if(assginedStatus==0){
+                write(sockfd,"We don't have any loan Application from Customer\n",strlen("We don't have any loan Application from Customer\n"));
+            }else if(assginedStatus==-1){
+                write(sockfd,"No Such LoanID Exist\n",strlen("No Such LoanID Exist\n"));
+            }
+            else{
+                write(sockfd,"Error Occured!\n",strlen("Error Occured!\n"));
+            }
+        }
+        else if(choice==4){
+            _Bool permission = 1;
+            write(sockfd,&permission,sizeof(_Bool));
+        }else if(choice==5){
+            //Update Manager Password
+            char username[MAX_LEN],currPwd[MAX_LEN],newPwd[MAX_LEN];
+
+            write(sockfd,"Enter Username: ",strlen("Enter Username: "));
+            bytes = read(sockfd,username,MAX_LEN);
+            username[bytes]='\0';
+
+            write(sockfd,"Enter Current Password: ",strlen("Enter Current Password: "));
+            bytes = read(sockfd,currPwd,MAX_LEN);
+            currPwd[bytes]='\0';
+
+            //verify account
+            int userExistStatus = login(username,currPwd);
+            write(sockfd,&userExistStatus,sizeof(int));
+            //Sync code
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(userExistStatus==0){
+                write(sockfd,"Account is Deactive\n",strlen("Account is Deactive\n"));
+                continue;
+            }
+            else if(userExistStatus!=currUserID){
+                write(sockfd,"Wrong Credentials!\n",strlen("Wrong Credentials!\n"));
+                continue;
+            }
+            
+
+            //Get new password
+            write(sockfd,"Enter New Password: ",strlen("Enter New Password: "));
+            bytes = read(sockfd,newPwd,MAX_LEN);
+            newPwd[bytes]='\0';
+
+            //password change status
+            int updateStatus = change_password(username,currPwd,newPwd);
+            write(sockfd,&updateStatus,sizeof(int));
+            //Sync code
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(updateStatus!=currUserID){
+                write(sockfd,"Failed to Update password\n",strlen("Failed to Update password\n"));
+            }
+            else
+                write(sockfd,"Password Updated successfully\n",strlen("Password Updated successfully\n"));
+        }else if (choice==6){
+            _Bool permission = 1;
+            write(sockfd,&permission,sizeof(_Bool));
+        }
+        else if(choice==7){break;}   
+    }
+    return 1;
+}
+
 int administratorZone(int sockfd,int currUserID){
     ssize_t bytes;
     char buff[BUFF_SIZE];
@@ -66,8 +370,17 @@ int administratorZone(int sockfd,int currUserID){
             char email[MAX_LEN];
             char phone[MAX_LEN];
 
-            write(sockfd,"Enter User ID: ",strlen("Enter User ID: "));
+            write(sockfd,"Enter Employee ID: ",strlen("Enter Employee ID: "));
             bytes = read(sockfd,&UID,sizeof(int));
+
+            int crossverify = userIdExist(UID);
+            write(sockfd,&crossverify,sizeof(int));
+            //sync wait
+            read(sockfd,buff,BUFF_SIZE-1);
+            if(crossverify==1){
+                write(sockfd,"This ID is not available\n",strlen("This ID is not available\n"));
+                continue;
+            }
 
             write(sockfd,"Enter Username: ",strlen("Enter Username: "));
             bytes = read(sockfd,username,MAX_LEN-1);
@@ -94,7 +407,6 @@ int administratorZone(int sockfd,int currUserID){
                 write(sockfd,"Failed to Register\n",strlen("Failed to Register\n"));
             else
                 write(sockfd,"Registraion Success\n",strlen("Registraion Success\n"));
-
         }
         else if(choice==4){
             //Manage User roles
@@ -166,8 +478,8 @@ int administratorZone(int sockfd,int currUserID){
                 write(sockfd,"Account is Deactive\n",strlen("Account is Deactive\n"));
                 continue;
             }
-            else if(userExistStatus<0){
-                write(sockfd,"No User Found\n",strlen("No User Found\n"));
+            else if(userExistStatus!=currUserID){
+                write(sockfd,"Wrong Credentials!\n",strlen("Wrong Credentials!\n"));
                 continue;
             }
 
@@ -186,7 +498,6 @@ int administratorZone(int sockfd,int currUserID){
             }
             else
                 write(sockfd,"Password Updated successfully\n",strlen("Password Updated successfully\n"));
-
         }
         else if(choice==6)break;
     }

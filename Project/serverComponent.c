@@ -637,3 +637,221 @@ int addFeedback(int starRating, const char *feedbackMessage) {
     close(fd);
     return 1;
 }
+
+int active_deactiveUser(int userID,int act){
+    struct credential user;
+    _Bool found = 0;
+    off_t offset=0;
+
+    
+    int fd = open("credentials.dat",O_RDWR);
+    if(fd<0) perror("Error opening credentials file");
+
+    while (read(fd, &user, sizeof(struct credential)) > 0) {
+        if(user.UID==userID){
+            found =1;
+            break;
+        };
+        offset+=sizeof(struct credential);
+    }
+
+    if(!found){
+        printf("No User Found\n");
+        close(fd);
+        return -1;
+    }
+
+    //User Found
+    if(user.active==act){
+        close(fd);
+        return 0;
+    }
+    user.active = !(user.active);
+    lseek(fd,offset,SEEK_SET);
+    if(write(fd,&user,sizeof(struct credential))<0){
+        perror("Couldn't Activate/deactivate");
+        close(fd);
+        return -2;
+    }
+    close(fd);
+    return 1;
+}
+int assignLoanToEmployee(int emplyID, char *loanID){
+    struct assignedLoan loanEntry;
+    char path[PATH_LEN];
+    _Bool found = 0;
+    
+    int fd1 = open("managerDB/loanApplication.dat",O_RDWR);
+    ssize_t bytes = read(fd1,&loanEntry,sizeof(struct assignedLoan));
+    if(bytes<=0){
+        printf("No Loan Application\n");
+        close(fd1);
+        return 0;
+    }
+
+    lseek(fd1,0,SEEK_SET);
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            close(fd1);
+            found=1;
+            break;
+        }
+    }
+    if(!found){
+        fprintf(stderr,"No such LoanID Exist\n");
+        return -1;
+    }
+    //Assiging to Employee
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",emplyID);
+    int fd2 = open(path,O_RDWR|O_CREAT|O_APPEND,0766);
+    if(fd2<0){
+        perror("Failed to open Employee loan file");
+        close(fd2);
+        return -2;
+    }
+
+    if(write(fd2,&loanEntry,sizeof(struct assignedLoan))<0){
+        perror("Failed to assign");
+        close(fd2);
+        return -2;
+    }
+    close(fd2);
+
+    fd1 = open("managerDB/loanApplication.dat",O_RDONLY);
+    fd2 = open("managerDB/temp.dat",O_WRONLY|O_CREAT|O_TRUNC,0766);
+
+    while (read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0) {
+            continue;
+        }
+        write(fd2,&loanEntry,sizeof(struct assignedLoan));
+    }
+
+    remove("managerDB/loanApplication.dat");
+    rename("managerDB/temp.dat","managerDB/loanApplication.dat");
+    
+    close(fd1);
+    close(fd2);
+    return 1;
+}
+int processLoan(int employID,char *loanID){
+    struct assignedLoan loanEntry;
+    struct loanApplication loanForm;
+    char path[PATH_LEN];
+    _Bool found = 0;
+    off_t offset = 0;
+
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",employID);
+    int fd1 = open(path,O_RDWR);
+    if(fd1<0){
+        perror("Failed to open assignedloan.dat");
+        return -1;
+    }
+
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            found = 1;
+            break;
+        }
+        offset+=sizeof(struct assignedLoan);
+    }
+
+    if(!found){
+        perror("No such loan Application");
+        close(fd1);
+        return 0;
+    }
+
+    snprintf(loanEntry.status,sizeof(loanEntry.status),"%s","Process");
+    lseek(fd1,offset,SEEK_SET);
+    if(write(fd1,&loanEntry,sizeof(struct assignedLoan))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd1);
+
+    bzero(path,PATH_LEN);
+    snprintf(path,PATH_LEN,"%d/userloandetail.dat",loanEntry.uid);
+    int fd2 = open(path,O_RDWR);
+    if(fd1<0){
+        perror("Failed to open userloandetail.dat");
+        return -1;
+    }
+    offset = 0;
+    while(read(fd2,&loanForm,sizeof(struct loanApplication))>0){
+        if(strcmp(loanID,loanForm.loanID)==0){break;}
+        offset+=sizeof(struct loanApplication);
+    }
+    snprintf(loanForm.status,sizeof(loanForm.status),"%s","Process");
+    lseek(fd2,offset,SEEK_SET);
+    if(write(fd2,&loanForm,sizeof(struct loanApplication))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd2);
+    return 1;
+}
+int accept_rejectLoanApp(int employID,char *loanID,int act){
+    struct assignedLoan loanEntry;
+    struct loanApplication loanForm;
+    char path[PATH_LEN],path2[PATH_LEN],path3[PATH_LEN];
+    int userID;
+    _Bool found = 0;
+    off_t offset = 0;
+
+    snprintf(path,PATH_LEN,"%d/assignedloan.dat",employID);
+    snprintf(path2,PATH_LEN,"%d/temp.dat",employID);
+    int fd1 = open(path,O_RDWR);
+    int fd2 = open(path2,O_RDWR|O_CREAT|O_TRUNC,0766);
+    if(fd1<0 || fd2<0){
+        perror("Failed to open assignedloan.dat");
+        return -1;
+    }
+
+    while(read(fd1,&loanEntry,sizeof(struct assignedLoan))>0){
+        if(strcmp(loanID,loanEntry.loanID)==0){
+            found = 1;
+            userID=loanEntry.uid;
+            continue;
+        }
+        write(fd2,&loanEntry,sizeof(struct assignedLoan));
+    }
+    close(fd1);
+    close(fd2);
+
+    if(!found){
+        perror("No such loan Application");
+        return 0;
+    }
+
+    bzero(path3,PATH_LEN);
+    snprintf(path3,PATH_LEN,"%d/userloandetail.dat",userID);
+    fd2 = open(path3,O_RDWR);
+    if(fd2<0){
+        perror("Failed to open userloandetail.dat");
+        return -1;
+    }
+    offset = 0;
+    while(read(fd2,&loanForm,sizeof(struct loanApplication))>0){
+        if(strcmp(loanID,loanForm.loanID)==0){break;}
+        offset+=sizeof(struct loanApplication);
+    }
+    if(act==1)
+        snprintf(loanForm.status,sizeof(loanForm.status),"%s","Accepted");
+    else if(act==2)
+        snprintf(loanForm.status,sizeof(loanForm.status),"%s","Rejected");
+    lseek(fd2,offset,SEEK_SET);
+    if(write(fd2,&loanForm,sizeof(struct loanApplication))<0){
+        perror("Failed to process");
+        close(fd1);
+        return -1;
+    }
+    close(fd2);
+
+    remove(path);
+    rename(path2,path);
+
+    return 1;
+}
