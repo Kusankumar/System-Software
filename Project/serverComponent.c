@@ -290,16 +290,16 @@ int change_password(char *username,char *currpass,char *newpass) {
     close(fd);
     return user.UID;
 }
-void transactionEntry(int userID,int toUserID,char *type,long int bal){
+void transactionEntry(int fromUserID,int toUserID,char *type,long int bal){
     struct transHistory tranHist;
     char path[PATH_LEN];
 
-    tranHist.fromID = userID;
+    tranHist.fromID = fromUserID;
     tranHist.toID = toUserID;
     snprintf(tranHist.type,MAX_LEN,"%s",type);
     tranHist.balance = bal;
 
-    snprintf(path,PATH_LEN,"%d/transactionHist.dat",userID);
+    snprintf(path,PATH_LEN,"%d/transactionHist.dat",fromUserID);
     int fd = open(path,O_WRONLY|O_CREAT|O_APPEND,0766);
     if(fd<0) perror("Error opening transaction History file");
     
@@ -324,11 +324,11 @@ long int checkUserBalance(int userID){
     return bal.balance;
 }
 
-int depositFund(int userID,int touserID,long int addAmount){
+int depositFund(int fromUserID,int toUserID,long int addAmount){
     struct acbalance bal;
     char path[PATH_LEN];
 
-    snprintf(path,PATH_LEN,"%d/balance.dat",userID);
+    snprintf(path,PATH_LEN,"%d/balance.dat",fromUserID);
     int fd = open(path,O_RDWR);
     if(fd<0) perror("Error opening balance file");
     
@@ -339,26 +339,28 @@ int depositFund(int userID,int touserID,long int addAmount){
     write(fd,&bal,sizeof(struct acbalance));
     close(fd);
 
-    transactionEntry(userID,touserID,"credit",addAmount);
+    transactionEntry(fromUserID,toUserID,"credit",addAmount);
     return 1;
 }
 
-int withdrawFund(int userID,int touserID,long int debitAmount){
+int withdrawFund(int fromUserID,int touserID,long int debitAmount){
     struct acbalance bal;
     char path[PATH_LEN];
 
-    snprintf(path,PATH_LEN,"%d/balance.dat",userID);
+    snprintf(path,PATH_LEN,"%d/balance.dat",fromUserID);
     int fd = open(path,O_RDWR);
     if(fd<0) perror("Error opening balance file");
     
     read(fd,&bal,sizeof(struct acbalance));
+    
+    if(bal.balance<0 || bal.balance<debitAmount){return 0;}
     bal.balance = bal.balance - debitAmount;
+    
     lseek(fd,0,SEEK_SET);
-
     write(fd,&bal,sizeof(struct acbalance));
     close(fd);
 
-    transactionEntry(userID,touserID,"debit",debitAmount);
+    transactionEntry(fromUserID,touserID,"debit",debitAmount);
     return 1;
 }
 
@@ -379,6 +381,7 @@ int userIdExist(int userID){
 int managerUserRoles(int oldID,int newID){
     struct userDetails currDetail;
     struct credential currCred;
+    struct acbalance bal;
     char path[PATH_LEN];
     _Bool found = 0;
     off_t offset = 0;
@@ -449,11 +452,13 @@ int managerUserRoles(int oldID,int newID){
     
     if(newID>1000){
         //Creating User balance sheet
+        bal.balance=0;
         bzero(path,PATH_LEN);
         snprintf(path,PATH_LEN,"%d/balance.dat",oldID);
 
-        fd = open(path,O_WRONLY|O_CREAT,0766);
+        fd = open(path,O_RDWR|O_CREAT,0766);
         if(fd<0) fprintf(stderr,"Error creating <%s> files",path);
+        write(fd,&bal,sizeof(struct acbalance));
         close(fd);
 
         //Creating User Transaction History file
@@ -855,3 +860,5 @@ int accept_rejectLoanApp(int employID,char *loanID,int act){
 
     return 1;
 }
+
+//https://github.com/ImSonu2030

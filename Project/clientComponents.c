@@ -80,7 +80,7 @@ void printTransHistory(int userID){
     snprintf(path,PATH_LEN,"%d/transactionHist.dat",userID);
     int fd = open(path,O_RDONLY);
 
-    printf("Transactions---------------------------------\nFrom\t To\tType\t Amount\n");
+    printf("Transactions-------------------------------------\nFrom\t To\tType\t Amount\n");
     while(read(fd,&userTransHist,sizeof(struct transHistory))>0){
         printf("%d\t %d \t%s \t%ld\n",userTransHist.fromID,userTransHist.toID,userTransHist.type,userTransHist.balance);
     }
@@ -100,7 +100,7 @@ void viewCustomerLoan(int userID){
     }
 
     printf("LoanID\t#Application\tAmount(\u20B9)\tStatus\n");
-    printf("------------------------------------------------\n");
+    printf("-------------------------------------------------\n");
     while (read(fd,&loanEntry,sizeof(struct loanApplication))>0){
         printf("%s\t%d\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
     }

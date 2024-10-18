@@ -122,9 +122,13 @@ int main(){
                         printf("Enter Amount: ");
                         scanf("%ld",&amount);
                         write(sockfd,&amount,sizeof(long int));
+                        
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
                     }else if(choice==4){
                         //Send money
-                        int towhom;
+                        int towhom,validUser;
                         long int amount;
 
                         bzero(buff,BUFF_SIZE);
@@ -134,6 +138,16 @@ int main(){
                         scanf("%d",&towhom);
                         write(sockfd,&towhom,sizeof(int));
 
+                        read(sockfd,&validUser,sizeof(int));
+                        //sync write
+                        write(sockfd,"sync",strlen("sync"));
+                        if(validUser!=1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+                        
                         bzero(buff,BUFF_SIZE);
                         bytes = read(sockfd,buff,BUFF_SIZE-1);
                         buff[bytes] = '\0';
@@ -141,7 +155,9 @@ int main(){
                         scanf("%ld",&amount);
                         write(sockfd,&amount,sizeof(long int));
 
-                        bytes = read(sockfd,buff,BUFF_SIZE);
+                        bytes = read(sockfd,buff,BUFF_SIZE-1);
+                        buff[bytes]='\0';
+                        printf("%s",buff);
                     }
                     else if(choice==5){
                         //Apply for loan
