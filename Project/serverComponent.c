@@ -860,5 +860,3 @@ int accept_rejectLoanApp(int employID,char *loanID,int act){
 
     return 1;
 }
-
-//https://github.com/ImSonu2030
