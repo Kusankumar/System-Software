@@ -10,6 +10,7 @@
 #include <fcntl.h>   
 #include <sys/stat.h>
 #include "clientComponents.c"
+
 #define PORT 9898
 #define BUFF_SIZE 1024
 #define PATH_LEN 64
@@ -53,7 +54,7 @@ int main(){
         //Login User
         if(loginAct==1){
             char username[UCSIZE],passwd[UCSIZE];
-            int auth;
+            int auth,mysession;
             bzero(buff,BUFF_SIZE);
 
             //Enter Username
@@ -82,6 +83,16 @@ int main(){
             }
             if(auth<0){
                 printf("No User Found.\n");
+            }
+            
+            read(sockfd,&mysession,sizeof(int));
+            write(sockfd,"sync",strlen("sync"));
+            if(mysession==1){
+                bytes = read(sockfd,buff,BUFF_SIZE-1);
+                buff[bytes]='\0';
+                printf("%s",buff);
+                sleep(2);system("clear");
+                continue;
             }
             sleep(2);
             system("clear");
@@ -170,7 +181,11 @@ int main(){
                         printf("%s",buff);
                     }else if(choice==6){
                         //View history
-                        printTransHistory(currUserID);
+                        _Bool permission;
+                        read(sockfd,&permission,sizeof(_Bool));
+                        if(permission){
+                            printTransHistory(currUserID);
+                        }else printf("You don't have permission\n");
                     }
                     else if(choice==7){
                         //Feedback
@@ -230,7 +245,11 @@ int main(){
                     }
                     else if(choice==9){
                         //View My loans
-                        viewCustomerLoan(currUserID);
+                        _Bool permission;
+                        read(sockfd,&permission,sizeof(_Bool));
+                        if(permission){
+                            viewCustomerLoan(currUserID);
+                        }else printf("You don't have permission\n");
                     }else if(choice==10){
                         break;
                     }else{
@@ -304,6 +323,16 @@ int main(){
                         scanf("%s",pwd);
                         write(sockfd,pwd,strlen(pwd));
                         
+                        //Check if username/password already exist
+                        read(sockfd,&crossverify,sizeof(int));
+                        write(sockfd,"sync",strlen("sync"));
+                        if(crossverify!=-1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
+
                         //Enter New Employee Name
                         getchar();
                         bzero(buff,BUFF_SIZE);
@@ -778,6 +807,15 @@ int main(){
                         scanf("%s",pwd);
                         write(sockfd,pwd,strlen(pwd));
                         
+                        //Check if username/password already exist
+                        read(sockfd,&crossverify,sizeof(int));
+                        write(sockfd,"sync",strlen("sync"));
+                        if(crossverify!=-1){
+                            bytes = read(sockfd,buff,BUFF_SIZE-1);
+                            buff[bytes]='\0';
+                            printf("%s",buff);
+                            continue;
+                        }
                         //Enter New Employee Name
                         getchar();
                         bzero(buff,BUFF_SIZE);
@@ -988,6 +1026,10 @@ int main(){
         }
         else if(loginAct==2){
             break;
+        }
+        else{
+            printf("Invalid input\n");
+            sleep(2);
         }
     }
     close(sockfd);

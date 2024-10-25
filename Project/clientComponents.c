@@ -102,7 +102,7 @@ void viewCustomerLoan(int userID){
     printf("LoanID\t#Application\tAmount(\u20B9)\tStatus\n");
     printf("-------------------------------------------------\n");
     while (read(fd,&loanEntry,sizeof(struct loanApplication))>0){
-        printf("%s\t%d\t\u20B9%ld\t%s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
+        printf("%-5s\t%-10d\t\u20B9%-10ld\t%-10s\n",loanEntry.loanID,loanEntry.applicationNo,loanEntry.amount,loanEntry.status);
     }
     close(fd);
 }

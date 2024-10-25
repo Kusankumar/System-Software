@@ -24,7 +24,10 @@ struct credential {
     char username[MAX_LEN];
     char password[MAX_LEN];
 };
-
+struct session {
+    int UID;
+    _Bool activeSession;
+};
 struct userDetails{
     int UID;
     char name[MAX_LEN];
@@ -113,7 +116,6 @@ int modifyUserDetail(int userID,int whichEntry,char *newEntry){
     close(fd);
     return 1;
 }
-
 int login(char uname[MAX_LEN],char upwd[MAX_LEN]) {
     struct credential file_user;
 
@@ -135,13 +137,51 @@ int login(char uname[MAX_LEN],char upwd[MAX_LEN]) {
     close(fd);
     return -1;
 }
+int modifyUserSession(int userID,int act){
+    struct session us;
+    off_t offset = 0;
 
+    int fd = open("userSession.dat",O_RDWR);
+    if(fd<0){
+        perror("Failed to open userSessio.dat");
+        return -1;
+    }
+
+    while(read(fd,&us,sizeof(struct session))>0){
+        if(us.UID==userID){break;}
+        offset+=sizeof(struct session);
+    }
+
+    us.activeSession=act;
+    lseek(fd,offset,SEEK_SET);
+    write(fd,&us,sizeof(struct session));
+    close(fd);
+    return 1;
+}
+int checkUserSession(int userID){
+    struct session us;
+
+    int fd = open("userSession.dat",O_RDONLY);
+    if(fd<0){
+        perror("Failed to open userSessio.dat");
+        return -1;
+    }
+    while(read(fd,&us,sizeof(struct session))>0){
+        if(us.UID==userID) {
+            close(fd);
+            return us.activeSession;
+        }
+    }
+    close(fd);
+    return -1;
+}
 int register_user(int uid,char *username,char *pwd,char* name,char* uemail,char* phone) {
     struct credential user;
     struct userDetails udetail;
     struct acbalance ubal;
     struct transHistory utrans;
     struct feedback ufeed;
+    struct session us;
     char path[PATH_LEN];
 
     //Input credentials
@@ -187,7 +227,6 @@ int register_user(int uid,char *username,char *pwd,char* name,char* uemail,char*
     bzero(path,PATH_LEN);
     snprintf(path,PATH_LEN,"%d",user.UID);
     mkdir(path,0766);
-
 
     //Creating User detail File
     bzero(path,PATH_LEN);
@@ -242,6 +281,21 @@ int register_user(int uid,char *username,char *pwd,char* name,char* uemail,char*
         if(fd<0) fprintf(stderr,"Error creating <%s> file",path);
         close(fd);
     }
+
+    //User session Entry
+    fd = open("userSession.dat",O_RDWR|O_CREAT|O_APPEND,0766);
+    if(fd<0){
+        perror("Failed to open userSessio.dat");
+        return -1;
+    }
+    us.UID=uid;
+    us.activeSession=0;
+    if(write(fd,&us,sizeof(struct session))<0){
+        perror("Error writing on userSession.dat");
+        return -1;
+    }
+    close(fd);
+
     return 1;
 }
 //change password
@@ -548,7 +602,7 @@ int sendLoanAppToManager(struct userDetails user,struct loanApplication loanForm
     recievedForm.uid=user.UID;
     snprintf(recievedForm.username,MAX_LEN,"%s",user.name);
 
-    int fd = open("managerDB/loanApplication.dat",O_WRONLY|O_APPEND);
+    int fd = open("managerDB/loanApplication.dat",O_WRONLY | O_CREAT |O_APPEND);
     if(fd<0) {
         perror("Error opening managerDB/loanApplication.dat");
         return -1;

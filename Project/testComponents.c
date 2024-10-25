@@ -4,7 +4,6 @@
 #include <fcntl.h>   
 #include <unistd.h>  
 #include <sys/stat.h>
-
 #define MAX_LEN 64
 #define PATH_LEN 64
 
@@ -14,7 +13,10 @@ struct credential {
     char username[MAX_LEN];
     char password[MAX_LEN];
 };
-
+struct session {
+    int UID;
+    _Bool activeSession;
+};
 struct userDetails{
     int UID;
     char name[MAX_LEN];
@@ -962,11 +964,65 @@ int accept_rejectLoanApp(int employID,char *loanID,int act){
 
     return 1;
 }
+int modifyUserSession(int userID,int act){
+    struct session us;
+    off_t offset = 0;
+
+    int fd = open("userSession.dat",O_RDWR);
+    if(fd<0){
+        perror("Failed to open userSessio.dat");
+        return -1;
+    }
+
+    while(read(fd,&us,sizeof(struct session))>0){
+        if(us.UID==userID){break;}
+        offset+=sizeof(struct session);
+    }
+
+    us.activeSession=act;
+    lseek(fd,offset,SEEK_SET);
+    write(fd,&us,sizeof(struct session));
+    close(fd);
+    return 1;
+}
+int checkUserSession(int userID){
+    struct session us;
+
+    int fd = open("userSession.dat",O_RDONLY);
+    if(fd<0){
+        perror("Failed to open userSessio.dat");
+        return -1;
+    }
+    while(read(fd,&us,sizeof(struct session))>0){
+        if(us.UID==userID) {
+            close(fd);
+            return us.activeSession;
+        }
+    }
+    close(fd);
+    return -1;
+}
+int viewUserSession(){
+    struct session us;
+
+    int fd = open("userSession.dat",O_RDONLY);
+    if(fd<0){
+        perror("Failed to view active session file\n");
+        return -1;
+    }
+    printf("userID    active session\n");
+    printf("-------------------------\n");
+    while (read(fd,&us,sizeof(struct session))>0){
+        printf("%-10d%-10d\n",us.UID,us.activeSession);
+    }
+    close(fd);
+    return 1;
+}
 int main() {
     int choice, auth;
     
     while (1) {
-        printf("\n1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n8. Activate/Deactivate User\n9. Update User Entry\n10. Modify User role\n11. Apply to loan\n12. Add Feedback\n13. Assigned loan to Employee\n14. View Employee/User Assigned Loan\n15. Process Loan\n16. Assign/Reject Loan\n");
+        printf("\n1. Register\n2. Login\n3. change password\n4. Exit\n5. Get user detail\n6. Fetch Credential Data\n7. Delete User\n8. Activate/Deactivate User\n9. Update User Entry\n10. Modify User role\n11. Apply to loan\n12. Add Feedback\n13. Assigned loan to Employee\n14. View Employee/User Assigned Loan\n15. Process Loan\n16. Assign/Reject Loan\n17. View user session\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
@@ -1104,6 +1160,15 @@ int main() {
                 printf("1. Accept\n2. Reject\nEnter: ");
                 scanf("%d",&act1);
                 accept_rejectLoanApp(uid6,loanID3,act1);
+                break;
+            case 17:
+                int uid7,session;
+                printf("Enter UserID: ");
+                scanf("%d",&uid7);
+                printf("0. Deactivate/n1. Activate\nEnter: ");
+                scanf("%d",&session);
+                modifyUserSession(uid7,session);
+                viewUserSession();
                 break;
             default:
                 printf("Invalid choice.\n");
